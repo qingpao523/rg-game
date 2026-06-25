@@ -1,0 +1,13 @@
+# Cocos Creator generated folders
+build/
+library/
+local/
+temp/
+
+# macOS
+.DS_Store
+docs/.DS_Store
+
+# Editor / tooling noise
+*.log
+
