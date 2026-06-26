@@ -1,0 +1,45 @@
+[gd_scene load_steps=4 format=4 uid="uid://b0x0x0x0menu"]
+
+[ext_resource type="Script" path="res://assets/scripts/ui/MainMenuView.gd" id="1"]
+[ext_resource type="Texture2D" id="2" path="res://assets/art/icon.png"]
+
+[node name="MainMenu" type="CanvasLayer"]
+
+[node name="Panel" type="Panel" parent="."]
+anchors_preset = 0
+size = Vector2i(1280, 720)
+
+[node name="TitleLabel" type="Label" parent="Panel"]
+position = Vector2(490, 200)
+size = Vector2(300, 60)
+text = "无尽入侵"
+horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(1, 0.95, 0.85, 1)
+
+[node name="SubtitleLabel" type="Label" parent="Panel"]
+position = Vector2(390, 270)
+size = Vector2(500, 30)
+text = "Endless Invasion · Roguelite Survival"
+horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+
+[node name="CharacterContainer" type="HBoxContainer" parent="Panel"]
+position = Vector2(240, 350)
+size = Vector2(800, 180)
+theme_override_constants/separation = 20
+
+[node name="StartButton" type="Button" parent="Panel"]
+position = Vector2(490, 600)
+size = Vector2(300, 50)
+text = "开始冒险"
+theme_override_font_sizes/font_size = 22
+
+[node name="VersionLabel" type="Label" parent="Panel"]
+position = Vector2(10, 690)
+text = "v0.1.0 Demo"
+theme_override_colors/font_color = Color(0.4, 0.4, 0.45, 1)
+
+[connection signal="pressed" from="Panel/StartButton" to="MainMenuView.gd" method="_on_start_pressed"]

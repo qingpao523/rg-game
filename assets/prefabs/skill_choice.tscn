@@ -1,0 +1,33 @@
+[gd_scene load_steps=2 format=4 uid="uid://b0x0x0choice"]
+
+[ext_resource type="Script" path="res://assets/scripts/ui/SkillChoiceView.gd" id="1"]
+
+[node name="SkillChoiceView" type="CanvasLayer"]
+script = ExtResource("1")
+visible = false
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 240
+offset_top = 200
+offset_right = 1040
+offset_bottom = 520
+theme_override_styles/panel = null
+
+[node name="TitleLabel" type="Label" parent="Panel"]
+layout_mode = 0
+offset_left = 250
+offset_top = 10
+offset_right = 550
+offset_bottom = 50
+text = "选择技能"
+horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+theme_override_font_sizes/font_size = 28
+
+[node name="CardContainer" type="HBoxContainer" parent="Panel"]
+layout_mode = 0
+offset_left = 30
+offset_top = 70
+offset_right = 770
+offset_bottom = 310
+theme_override_constants/separation = 20

@@ -1,0 +1,84 @@
+[gd_scene load_steps=2 format=4 uid="uid://b0x0x0hud"]
+
+[ext_resource type="Script" path="res://assets/scripts/ui/HudView.gd" id="1"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 1
+grow_vertical = 1
+
+[node name="VBox" type="VBoxContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_right = 300.0
+offset_bottom = 200.0
+grow_horizontal = 0
+
+[node name="LevelLabel" type="Label" parent="Control/VBox"]
+layout_mode = 2
+text = "Lv.1"
+theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.95, 0.95, 1, 1)
+
+[node name="HPBar" type="ProgressBar" parent="Control/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 24)
+max_value = 100
+value = 100
+show_percentage = false
+theme_override_styles/background = null
+theme_override_styles/fill = null
+
+[node name="Label" type="Label" parent="Control/VBox/HPBar"]
+layout_mode = 0
+offset_left = 80
+offset_top = 3
+offset_right = 170
+offset_bottom = 21
+text = "100/100"
+horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+[node name="ManaBar" type="ProgressBar" parent="Control/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 24)
+max_value = 100
+value = 100
+show_percentage = false
+
+[node name="Label" type="Label" parent="Control/VBox/ManaBar"]
+layout_mode = 0
+offset_left = 80
+offset_top = 3
+offset_right = 170
+offset_bottom = 21
+text = "50/50"
+horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+[node name="WaveLabel" type="Label" parent="Control/VBox"]
+layout_mode = 2
+text = "第 1 波"
+theme_override_colors/font_color = Color(0.85, 0.85, 0.9, 1)
+
+[node name="TimeLabel" type="Label" parent="Control/VBox"]
+layout_mode = 2
+text = "00:00"
+theme_override_colors/font_color = Color(0.75, 0.75, 0.8, 1)
+
+[node name="SkillContainer" type="HBoxContainer" parent="Control/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 40)
+
+[node name="PauseButton" type="Button" parent="Control/VBox"]
+layout_mode = 2
+text = "||"
+custom_minimum_size = Vector2(40, 30)

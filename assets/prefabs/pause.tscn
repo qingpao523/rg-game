@@ -1,0 +1,41 @@
+[gd_scene load_steps=2 format=4 uid="uid://b0x0x0pause"]
+
+[ext_resource type="Script" path="res://assets/scripts/ui/PauseView.gd" id="1"]
+
+[node name="PauseView" type="CanvasLayer"]
+script = ExtResource("1")
+visible = false
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 440
+offset_top = 210
+offset_right = 840
+offset_bottom = 510
+theme_override_styles/panel = null
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 0
+offset_left = 50
+offset_top = 40
+offset_right = 350
+offset_bottom = 260
+theme_override_constants/separation = 20
+
+[node name="Label" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "暂停"
+horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+theme_override_font_sizes/font_size = 32
+
+[node name="ResumeButton" type="Button" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "继续游戏"
+custom_minimum_size = Vector2(180, 45)
+theme_override_font_sizes/font_size = 20
+
+[node name="QuitButton" type="Button" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "返回主菜单"
+custom_minimum_size = Vector2(180, 45)
+theme_override_font_sizes/font_size = 20
