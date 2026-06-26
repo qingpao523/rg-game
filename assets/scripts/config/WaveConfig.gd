@@ -1,7 +1,8 @@
 ## WaveConfig - 波次配置
 ## 8-12 分钟压缩压力曲线
 
-extends Node
+class_name WaveConfig
+extends RefCounted
 
 static var _wave_templates: Array[Dictionary] = [
 	# 前 3 波：暖身

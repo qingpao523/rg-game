@@ -46,7 +46,7 @@ offset_top = 3
 offset_right = 170
 offset_bottom = 21
 text = "100/100"
-horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+horizontal_alignment = 1
 
 [node name="ManaBar" type="ProgressBar" parent="Control/VBox"]
 layout_mode = 2
@@ -62,7 +62,7 @@ offset_top = 3
 offset_right = 170
 offset_bottom = 21
 text = "50/50"
-horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+horizontal_alignment = 1
 
 [node name="WaveLabel" type="Label" parent="Control/VBox"]
 layout_mode = 2

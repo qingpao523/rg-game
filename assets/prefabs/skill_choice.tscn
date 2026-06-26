@@ -21,7 +21,7 @@ offset_top = 10
 offset_right = 550
 offset_bottom = 50
 text = "选择技能"
-horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+horizontal_alignment = 1
 theme_override_font_sizes/font_size = 28
 
 [node name="CardContainer" type="HBoxContainer" parent="Panel"]

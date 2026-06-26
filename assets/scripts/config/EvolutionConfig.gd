@@ -1,7 +1,8 @@
 ## EvolutionConfig - 技能进化配置
 ## 主技能 Lv5 + 催化技能 Lv3 = 进化
 
-extends Node
+class_name EvolutionConfig
+extends RefCounted
 
 static var _configs: Dictionary = {
 	"meteor": {

@@ -1,7 +1,8 @@
 ## SkillConfig - 技能配置
 ## 基础技能数据：标签、升级、进化催化关系
 
-extends Node
+class_name SkillConfig
+extends RefCounted
 
 static var _configs: Dictionary = {
 	"fireball": {

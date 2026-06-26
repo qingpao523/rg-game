@@ -24,7 +24,7 @@ func create_group(group_name: String, scene: PackedScene, prewarm_count: int = 0
 		add_child(instance)
 		_pools[group_name].append(PoolEntry.new(instance))
 
-func get_node(group_name: String) -> Node:
+func acquire(group_name: String) -> Node:
 	if not _pools.has(group_name):
 		push_error("[ObjectPool] 池不存在: ", group_name)
 		return null

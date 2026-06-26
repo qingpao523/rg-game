@@ -7,14 +7,14 @@
 
 [node name="Panel" type="Panel" parent="."]
 anchors_preset = 0
-size = Vector2i(1280, 720)
+size = Vector2(1280, 720)
 
 [node name="TitleLabel" type="Label" parent="Panel"]
 position = Vector2(490, 200)
 size = Vector2(300, 60)
 text = "无尽入侵"
-horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+horizontal_alignment = 1
+vertical_alignment = 1
 theme_override_font_sizes/font_size = 48
 theme_override_colors/font_color = Color(1, 0.95, 0.85, 1)
 
@@ -22,7 +22,7 @@ theme_override_colors/font_color = Color(1, 0.95, 0.85, 1)
 position = Vector2(390, 270)
 size = Vector2(500, 30)
 text = "Endless Invasion · Roguelite Survival"
-horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+horizontal_alignment = 1
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
 

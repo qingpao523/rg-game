@@ -15,9 +15,37 @@ var state: GameState = GameState.BOOT:
 		EventBus.emit_signal("game_state_changed", value)
 
 func _ready() -> void:
+	_setup_input_map()
 	_load_configs()
 	# 延迟一帧再跳转，确保场景树就绪
 	call_deferred("_switch_scene", "res://assets/scenes/main_menu/MainMenu.tscn")
+
+func _setup_input_map() -> void:
+	if InputMap.has_action("move_up"):
+		return
+	InputMap.add_action("move_up")
+	InputMap.add_action("move_down")
+	InputMap.add_action("move_left")
+	InputMap.add_action("move_right")
+	InputMap.add_action("active_skill")
+	InputMap.add_action("pause")
+
+	var add_key = func(action: String, keycode: Key):
+		var event = InputEventKey.new()
+		event.keycode = keycode
+		InputMap.action_add_event(action, event)
+
+	add_key.call("move_up", KEY_W)
+	add_key.call("move_up", KEY_UP)
+	add_key.call("move_down", KEY_S)
+	add_key.call("move_down", KEY_DOWN)
+	add_key.call("move_left", KEY_A)
+	add_key.call("move_left", KEY_LEFT)
+	add_key.call("move_right", KEY_D)
+	add_key.call("move_right", KEY_RIGHT)
+	add_key.call("active_skill", KEY_SPACE)
+	add_key.call("pause", KEY_ESCAPE)
+	add_key.call("pause", KEY_P)
 
 func _load_configs() -> void:
 	CharacterConfig.load_data()

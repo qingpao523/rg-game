@@ -1,7 +1,8 @@
 ## EnemyConfig - 怪物配置
 ## 基础近战怪、冲锋怪、精英怪
 
-extends Node
+class_name EnemyConfig
+extends RefCounted
 
 static var _configs: Dictionary = {
 	"grunt": {

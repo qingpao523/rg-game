@@ -1,7 +1,8 @@
 ## CharacterConfig - 角色配置
 ## 5 个 MVP 职业：道士、武士、法老、寒冰女巫、十字军
 
-extends Node
+class_name CharacterConfig
+extends RefCounted
 
 static var _configs: Dictionary = {
 	"taoist": {
