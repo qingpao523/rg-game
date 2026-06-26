@@ -3,8 +3,8 @@
 [ext_resource type="Script" path="res://assets/scripts/combat/Projectile.gd" id="1"]
 [ext_resource type="Texture2D" id="2" path="res://assets/art/projectile_placeholder.png"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_proj"]
-radius = 6.0
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_box"]
+size = Vector2(12, 12)
 
 [node name="Projectile" type="Area2D"]
 collision_layer = 4
@@ -15,7 +15,7 @@ texture = ExtResource("2")
 scale = Vector2(0.3, 0.3)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_proj")
+shape = SubResource("RectangleShape2D_box")
 
 [node name="LifeTimer" type="Timer" parent="."]
 wait_time = 3.0

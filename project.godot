@@ -16,6 +16,7 @@ boot_splash/bg_color=Color(0.086, 0.086, 0.094, 1)
 GameApp="*res://assets/scripts/core/GameApp.gd"
 EventBus="*res://assets/scripts/core/EventBus.gd"
 TimeService="*res://assets/scripts/core/TimeService.gd"
+GameSession="*res://assets/scripts/core/GameSession.gd"
 ObjectPool="*res://assets/scripts/core/ObjectPool.gd"
 PlatformAdapter="*res://assets/scripts/platform/PlatformAdapter.gd"
 

@@ -10,11 +10,9 @@ class_name Projectile
 @export var pierce: bool = false
 @export var lifetime: float = 3.0
 
-var _age: float = 0.0
 var _hit_enemies: Array[Node] = []
 
 func _ready() -> void:
-	area_entered.connect(_on_hit)
 	body_entered.connect(_on_hit)
 	$LifeTimer.start(lifetime)
 	$LifeTimer.timeout.connect(_die)
@@ -32,5 +30,4 @@ func _on_hit(hit: Node) -> void:
 			_die()
 
 func _die() -> void:
-	# 对象池释放或销毁
 	queue_free()

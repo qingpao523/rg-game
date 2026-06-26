@@ -11,6 +11,7 @@ var _character_buttons: Array[Button] = []
 @onready var char_container: HBoxContainer = $Panel/CharacterContainer
 
 func _ready() -> void:
+	start_button.pressed.connect(_on_start_pressed)
 	var char_ids = CharacterConfig.get_all_ids()
 	for i in range(char_ids.size()):
 		var char_id = char_ids[i]
@@ -28,7 +29,7 @@ func _ready() -> void:
 		if i == 0:
 			btn.button_pressed = true
 			_selected_character = char_id
-	start_button.disabled = true  # 选了角色才启用
+	start_button.disabled = (_selected_character == "")
 
 func _on_character_selected(char_id: String) -> void:
 	_selected_character = char_id

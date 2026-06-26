@@ -16,8 +16,8 @@ var state: GameState = GameState.BOOT:
 
 func _ready() -> void:
 	_load_configs()
-	state = GameState.BOOT
-	_switch_scene("res://assets/scenes/main_menu/MainMenu.tscn")
+	# 延迟一帧再跳转，确保场景树就绪
+	call_deferred("_switch_scene", "res://assets/scenes/main_menu/MainMenu.tscn")
 
 func _load_configs() -> void:
 	CharacterConfig.load_data()

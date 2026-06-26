@@ -3,10 +3,12 @@
 [ext_resource type="Script" path="res://assets/scripts/combat/Player.gd" id="1"]
 [ext_resource type="Texture2D" id="2" path="res://assets/art/player_placeholder.png"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_s9h3c"]
-radius = 14.0
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_box"]
+size = Vector2(28, 28)
 
 [node name="Player" type="CharacterBody2D"]
+collision_layer = 1
+collision_mask = 2
 groups = ["player"]
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
@@ -14,10 +16,9 @@ texture = ExtResource("2")
 scale = Vector2(0.5, 0.5)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 0)
-shape = SubResource("CircleShape2D_s9h3c")
+shape = SubResource("RectangleShape2D_box")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 anchor_mode = 0
 position_smoothing_enabled = true
-position_smoothing_speed = 8.0
+position_smoothing_speed = 6.0

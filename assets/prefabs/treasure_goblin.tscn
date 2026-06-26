@@ -3,8 +3,8 @@
 [ext_resource type="Script" path="res://assets/scripts/spawn/TreasureGoblin.gd" id="1"]
 [ext_resource type="Texture2D" id="2" path="res://assets/art/goblin_placeholder.png"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_gob"]
-radius = 14.0
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_box"]
+size = Vector2(28, 28)
 
 [node name="TreasureGoblin" type="CharacterBody2D"]
 collision_layer = 2
@@ -16,4 +16,4 @@ texture = ExtResource("2")
 scale = Vector2(0.6, 0.6)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_gob")
+shape = SubResource("RectangleShape2D_box")
