@@ -1,8 +1,14 @@
-# Cocos Creator generated folders
+# Godot specific
+.godot/
+import/
+*.import
+*.godot
+*.godot.tres
+.mono/
+
+# Build output
 build/
-library/
-local/
-temp/
+export/
 
 # macOS
 .DS_Store
@@ -10,4 +16,7 @@ docs/.DS_Store
 
 # Editor / tooling noise
 *.log
-
+CocosEditor/
+local/
+temp/
+library/
