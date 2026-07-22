@@ -5,20 +5,20 @@ class_name WaveConfig
 extends RefCounted
 
 static var _wave_templates: Array[Dictionary] = [
-	# 前 3 波：暖身
-	{"wave": 1, "duration": 30, "spawns": [{"type": "grunt", "count": 3, "interval": 2.0}]},
-	{"wave": 2, "duration": 30, "spawns": [{"type": "grunt", "count": 5, "interval": 1.5}]},
-	{"wave": 3, "duration": 30, "spawns": [{"type": "grunt", "count": 4, "interval": 1.2}, {"type": "charger", "count": 2, "interval": 3.0}]},
+	# 前 3 波：快速暖身
+	{"wave": 1, "duration": 20, "spawns": [{"type": "grunt", "count": 16, "interval": 0.9}]},
+	{"wave": 2, "duration": 20, "spawns": [{"type": "grunt", "count": 24, "interval": 0.7}]},
+	{"wave": 3, "duration": 20, "spawns": [{"type": "grunt", "count": 16, "interval": 0.5}, {"type": "charger", "count": 8, "interval": 1.5}]},
 	# 4-6 波：上强度
-	{"wave": 4, "duration": 35, "spawns": [{"type": "grunt", "count": 6, "interval": 1.0}, {"type": "charger", "count": 3, "interval": 2.5}]},
-	{"wave": 5, "duration": 35, "spawns": [{"type": "grunt", "count": 8, "interval": 0.8}, {"type": "charger", "count": 4, "interval": 2.0}]},
-	{"wave": 6, "duration": 40, "spawns": [{"type": "grunt", "count": 10, "interval": 0.7}, {"type": "elite", "count": 1, "interval": 8.0}]},
+	{"wave": 4, "duration": 25, "spawns": [{"type": "grunt", "count": 20, "interval": 0.5}, {"type": "charger", "count": 10, "interval": 1.5}]},
+	{"wave": 5, "duration": 25, "spawns": [{"type": "grunt", "count": 24, "interval": 0.4}, {"type": "charger", "count": 12, "interval": 1.2}]},
+	{"wave": 6, "duration": 30, "spawns": [{"type": "grunt", "count": 28, "interval": 0.3}, {"type": "elite", "count": 4, "interval": 5.0}]},
 	# 7-9 波：高压
-	{"wave": 7, "duration": 40, "spawns": [{"type": "grunt", "count": 12, "interval": 0.5}, {"type": "charger", "count": 6, "interval": 1.5}, {"type": "elite", "count": 1, "interval": 6.0}]},
-	{"wave": 8, "duration": 45, "spawns": [{"type": "grunt", "count": 15, "interval": 0.4}, {"type": "charger", "count": 8, "interval": 1.2}, {"type": "elite", "count": 2, "interval": 5.0}]},
-	{"wave": 9, "duration": 45, "spawns": [{"type": "grunt", "count": 18, "interval": 0.3}, {"type": "charger", "count": 10, "interval": 1.0}, {"type": "elite", "count": 3, "interval": 4.0}]},
+	{"wave": 7, "duration": 35, "spawns": [{"type": "grunt", "count": 36, "interval": 0.25}, {"type": "charger", "count": 16, "interval": 1.0}, {"type": "elite", "count": 4, "interval": 4.0}]},
+	{"wave": 8, "duration": 35, "spawns": [{"type": "grunt", "count": 44, "interval": 0.2}, {"type": "charger", "count": 20, "interval": 0.8}, {"type": "elite", "count": 6, "interval": 3.0}]},
+	{"wave": 9, "duration": 40, "spawns": [{"type": "grunt", "count": 56, "interval": 0.15}, {"type": "charger", "count": 24, "interval": 0.6}, {"type": "elite", "count": 8, "interval": 2.5}]},
 	# 10+：混沌
-	{"wave": 10, "duration": 60, "spawns": [{"type": "grunt", "count": 25, "interval": 0.2}, {"type": "charger", "count": 12, "interval": 0.8}, {"type": "elite", "count": 4, "interval": 3.0}]}
+	{"wave": 10, "duration": 50, "spawns": [{"type": "grunt", "count": 70, "interval": 0.1}, {"type": "charger", "count": 30, "interval": 0.5}, {"type": "elite", "count": 12, "interval": 2.0}]}
 ]
 
 static func load_data() -> void:

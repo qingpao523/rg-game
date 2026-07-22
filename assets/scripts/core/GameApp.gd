@@ -17,8 +17,8 @@ var state: GameState = GameState.BOOT:
 func _ready() -> void:
 	_setup_input_map()
 	_load_configs()
-	# 延迟一帧再跳转，确保场景树就绪
-	call_deferred("_switch_scene", "res://assets/scenes/main_menu/MainMenu.tscn")
+	state = GameState.MAIN_MENU
+	print("[GameApp] 初始化完成，当前场景: ", get_tree().current_scene)
 
 func _setup_input_map() -> void:
 	if InputMap.has_action("move_up"):
@@ -56,11 +56,15 @@ func _load_configs() -> void:
 	print("[GameApp] 配置加载完成")
 
 func start_game(character_id: String) -> void:
+	print("[GameApp] start_game: ", character_id)
+	_clear_scene_pause()
 	state = GameState.PLAYING
 	GameSession.start_new(character_id)
 	TimeService.reset()
-	_switch_scene("res://assets/scenes/battle/Battle.tscn")
-	emit_signal("game_started", character_id)
+	var err = get_tree().change_scene_to_file("res://assets/scenes/battle/Battle.tscn")
+	print("[GameApp] change_scene_to_file: ", err)
+	if err == OK:
+		emit_signal("game_started", character_id)
 
 func pause_game() -> void:
 	if state == GameState.PLAYING:
@@ -75,21 +79,25 @@ func resume_game() -> void:
 		get_tree().paused = false
 
 func end_game() -> void:
+	_clear_scene_pause()
 	state = GameState.RESULT
 	TimeService.pause()
+	GameSession.survival_time = TimeService.game_time
 	var session = GameSession
 	emit_signal("game_over", session.wave, session.kills, session.level, session.survival_time)
-	_switch_scene("res://assets/scenes/result/Result.tscn")
+	var err = get_tree().change_scene_to_file("res://assets/scenes/result/Result.tscn")
+	print("[GameApp] end_game -> Result: ", err)
 
 func return_to_menu() -> void:
+	_clear_scene_pause()
 	state = GameState.MAIN_MENU
 	TimeService.reset()
 	GameSession.reset()
-	_switch_scene("res://assets/scenes/main_menu/MainMenu.tscn")
+	var err = get_tree().change_scene_to_file("res://assets/scenes/main_menu/MainMenu.tscn")
+	print("[GameApp] return_to_menu: ", err)
 
-func _switch_scene(scene_path: String) -> void:
-	get_tree().change_scene_to_file(scene_path)
-	emit_signal("scene_changed", scene_path)
+func _clear_scene_pause() -> void:
+	get_tree().paused = false
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:

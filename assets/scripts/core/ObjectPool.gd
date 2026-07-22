@@ -11,6 +11,7 @@ class PoolEntry:
 		node = n
 
 var _pools: Dictionary = {}   # group_name -> [PoolEntry]
+const INACTIVE_POSITION := Vector2(-100000.0, -100000.0)
 
 func create_group(group_name: String, scene: PackedScene, prewarm_count: int = 0) -> void:
 	if _pools.has(group_name):
@@ -18,9 +19,7 @@ func create_group(group_name: String, scene: PackedScene, prewarm_count: int = 0
 	_pools[group_name] = []
 	for i in range(prewarm_count):
 		var instance = scene.instantiate()
-		instance.visible = false
-		instance.set_process(false)
-		instance.set_physics_process(false)
+		_set_node_active(instance, false)
 		add_child(instance)
 		_pools[group_name].append(PoolEntry.new(instance))
 
@@ -31,12 +30,33 @@ func acquire(group_name: String) -> Node:
 	for entry in _pools[group_name]:
 		if not entry.active:
 			entry.active = true
-			entry.node.visible = true
-			entry.node.set_process(true)
-			entry.node.set_physics_process(true)
+			_set_node_active(entry.node, true)
 			return entry.node
-	push_warning("[ObjectPool] 池耗尽，扩展: ", group_name)
-	return null   # 调用方需处理扩容
+	# 自动扩容：创建新实例加入池中
+	var scene = _find_scene(group_name)
+	if scene:
+		var instance = scene.instantiate()
+		_set_node_active(instance, false)
+		add_child(instance)
+		_set_node_active(instance, true)
+		var entry = PoolEntry.new(instance)
+		entry.active = true
+		_pools[group_name].append(entry)
+		print("[ObjectPool] 自动扩容: ", group_name)
+		return instance
+	push_error("[ObjectPool] 池耗尽且无法扩容: ", group_name)
+	return null
+
+func _find_scene(group_name: String) -> PackedScene:
+	# 尝试加载已知场景
+	var scenes = {
+		"enemies": "res://assets/prefabs/enemy.tscn",
+		"projectiles": "res://assets/prefabs/projectile.tscn",
+		"effects": "res://assets/prefabs/hit_effect.tscn",
+	}
+	if scenes.has(group_name):
+		return load(scenes[group_name])
+	return null
 
 func release_node(group_name: String, node: Node) -> void:
 	if not _pools.has(group_name):
@@ -44,10 +64,7 @@ func release_node(group_name: String, node: Node) -> void:
 	for entry in _pools[group_name]:
 		if entry.node == node:
 			entry.active = false
-			entry.node.visible = false
-			entry.node.set_process(false)
-			entry.node.set_physics_process(false)
-			entry.node.position = Vector2.ZERO
+			_set_node_active(entry.node, false)
 			return
 
 func release_all(group_name: String) -> void:
@@ -56,10 +73,7 @@ func release_all(group_name: String) -> void:
 	for entry in _pools[group_name]:
 		if entry.active:
 			entry.active = false
-			entry.node.visible = false
-			entry.node.set_process(false)
-			entry.node.set_physics_process(false)
-			entry.node.position = Vector2.ZERO
+			_set_node_active(entry.node, false)
 
 func clear_group(group_name: String) -> void:
 	if not _pools.has(group_name):
@@ -71,3 +85,23 @@ func clear_group(group_name: String) -> void:
 func clear_all() -> void:
 	for group_name in _pools.keys():
 		clear_group(group_name)
+
+func _set_node_active(node: Node, active: bool) -> void:
+	if node is CanvasItem:
+		node.visible = active
+	node.set_process(active)
+	node.set_physics_process(active)
+	if node is Node2D and not active:
+		node.position = INACTIVE_POSITION
+	_set_collision_enabled(node, active)
+
+func _set_collision_enabled(node: Node, active: bool) -> void:
+	if node is CollisionShape2D:
+		node.set_deferred("disabled", not active)
+	elif node is CollisionPolygon2D:
+		node.set_deferred("disabled", not active)
+	elif node is Area2D:
+		node.set_deferred("monitoring", active)
+		node.set_deferred("monitorable", active)
+	for child in node.get_children():
+		_set_collision_enabled(child, active)

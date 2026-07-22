@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://c2kqmhpgibqol"]
+
+[ext_resource type="Texture2D" uid="uid://cwgnynafhcqwv" path="res://assets/art/enemies/charger_move.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 1015.5751, 1527.6426)

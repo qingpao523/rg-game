@@ -11,6 +11,7 @@ enum Platform { DESKTOP, WECHAT, OTHER }
 var current_platform: Platform = Platform.DESKTOP
 
 func _ready() -> void:
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
 	_detect_platform()
 	get_tree().root.focus_exited.connect(_on_focus_exited)
 	get_tree().root.focus_entered.connect(_on_focus_entered)

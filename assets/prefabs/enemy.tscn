@@ -1,19 +1,34 @@
-[gd_scene load_steps=4 format=4 uid="uid://b0x0x0enemy"]
+[gd_scene load_steps=7 format=4 uid="uid://b0x0x0enemy"]
 
 [ext_resource type="Script" path="res://assets/scripts/combat/Enemy.gd" id="1"]
-[ext_resource type="Texture2D" id="2" path="res://assets/art/enemy_placeholder.png"]
+[ext_resource type="AtlasTexture" path="res://assets/art/enemies/grunt_idle.tres" id="2"]
+[ext_resource type="Script" path="res://assets/scripts/visual/VisualAnimator.gd" id="3"]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_box"]
-size = Vector2(24, 24)
+[sub_resource type="CircleShape2D" id="CircleShape2D_box"]
+radius = 12.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_contact"]
+radius = 22.0
 
 [node name="Enemy" type="CharacterBody2D"]
+script = ExtResource("1")
 collision_layer = 2
 collision_mask = 1
 groups = ["enemy"]
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("2")
-scale = Vector2(0.4, 0.4)
-
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("RectangleShape2D_box")
+shape = SubResource("CircleShape2D_box")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2")
+centered = true
+
+[node name="VisualAnimator" type="Node" parent="."]
+script = ExtResource("3")
+
+[node name="ContactDamage" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 1
+
+[node name="ContactShape" type="CollisionShape2D" parent="ContactDamage"]
+shape = SubResource("CircleShape2D_contact")

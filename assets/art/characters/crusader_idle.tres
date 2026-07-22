@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://cf61sfh2dk8c4"]
+
+[ext_resource type="Texture2D" uid="uid://dsabpr4dhocfc" path="res://assets/art/characters/crusader_idle.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 1029.1558, 1538.1642)

@@ -13,7 +13,7 @@ config_version=5
 config/name="无尽入侵"
 config/description="Roguelite 生存割草游戏 - Endless Invasion"
 config/version="0.1.0"
-run/main_scene="res://assets/scenes/boot/Boot.tscn"
+run/main_scene="res://assets/scenes/main_menu/MainMenu.tscn"
 config/features=PackedStringArray("4.7")
 boot_splash/bg_color=Color(0.086, 0.086, 0.094, 1)
 config/icon="res://assets/art/app_icon.png"
@@ -26,13 +26,16 @@ TimeService="*res://assets/scripts/core/TimeService.gd"
 GameSession="*res://assets/scripts/core/GameSession.gd"
 ObjectPool="*res://assets/scripts/core/ObjectPool.gd"
 PlatformAdapter="*res://assets/scripts/platform/PlatformAdapter.gd"
-MCPRuntimeProbe="*res://addons/godot_mcp/runtime/mcp_runtime_probe.gd"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/window_width_override=390
+window/size/window_height_override=844
 window/stretch/mode="canvas_items"
+window/stretch/aspect="keep_width"
+window/handheld/orientation=1
 
 [editor_plugins]
 
@@ -41,6 +44,7 @@ enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
 [physics]
 
 2d/default_gravity=Vector2(0, 0)
+2d/physics_ticks_per_second=30
 
 [rendering]
 

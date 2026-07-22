@@ -13,6 +13,8 @@ signal enemy_killed(enemy: Node, killer: Node)
 signal skill_acquired(skill_id: String, level: int)
 signal skill_upgraded(skill_id: String, new_level: int)
 signal skill_evolved(base_id: String, evolved_id: String)
+signal active_skill_requested
+signal mobile_move_changed(direction: Vector2)
 signal goblin_spawned(goblin: Node)
 signal goblin_escaped
 signal wave_changed(wave: int)

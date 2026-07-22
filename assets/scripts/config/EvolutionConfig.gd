@@ -1,5 +1,6 @@
-## EvolutionConfig - 技能进化配置
-## 主技能 Lv5 + 催化技能 Lv3 = 进化
+## EvolutionConfig - 技能进化配置 v2.0
+## 主技能 Lv.5 + 催化技能 Lv.3 = 进化
+## 进化技能 ≈ 普通技能 Lv.5 的 2-3 倍强度
 
 class_name EvolutionConfig
 extends RefCounted
@@ -14,9 +15,11 @@ static var _configs: Dictionary = {
 		"catalyst_min_level": 3,
 		"result_tags": ["火", "区域", "范围输出"],
 		"damage_base": 80,
-		"damage_per_level": 20,
+		"damage_per_level": 40,
 		"cooldown": 6.0,
+		"cooldown_per_level": -0.5,
 		"range": 350,
+		"explosion_range": 120,
 		"burn_duration": 3.0,
 		"burn_dps": 10
 	},
@@ -29,8 +32,9 @@ static var _configs: Dictionary = {
 		"catalyst_min_level": 3,
 		"result_tags": ["冰", "区域", "控制"],
 		"damage_base": 30,
-		"damage_per_level": 10,
+		"damage_per_level": 15,
 		"cooldown": 5.0,
+		"cooldown_per_level": -0.3,
 		"range": 300,
 		"freeze_duration": 2.0,
 		"projectile_count": 6
@@ -44,8 +48,9 @@ static var _configs: Dictionary = {
 		"catalyst_min_level": 3,
 		"result_tags": ["雷", "区域", "连锁催化"],
 		"damage_base": 25,
-		"damage_per_level": 8,
+		"damage_per_level": 12,
 		"cooldown": 4.0,
+		"cooldown_per_level": -0.3,
 		"chain_count": 6,
 		"range": 400
 	},
@@ -73,7 +78,7 @@ static var _configs: Dictionary = {
 		"catalyst_min_level": 3,
 		"result_tags": ["毒", "投射", "输出"],
 		"damage_base": 35,
-		"damage_per_level": 12,
+		"damage_per_level": 15,
 		"cooldown": 3.5,
 		"range": 450,
 		"poison_dps": 8,
@@ -88,8 +93,9 @@ static var _configs: Dictionary = {
 		"catalyst_min_level": 3,
 		"result_tags": ["灾厄", "投射", "削弱"],
 		"damage_base": 20,
-		"damage_per_level": 7,
+		"damage_per_level": 10,
 		"cooldown": 3.0,
+		"cooldown_per_level": -0.2,
 		"range": 500,
 		"homing": true,
 		"resistance_reduction": 0.2
@@ -135,7 +141,6 @@ static func get_all_ids() -> Array[String]:
 static func get_config(id: String) -> Dictionary:
 	return _configs.get(id, {}).duplicate(true)
 
-## 检测是否有符合条件的进化
 static func find_evolution(base_skill_id: String, base_level: int, catalyst_levels: Dictionary) -> String:
 	for evo_id in _configs:
 		var evo = _configs[evo_id]

@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://dc1jwnecpsaml"]
+
+[ext_resource type="Texture2D" uid="uid://bms4cpka20trm" path="res://assets/art/characters/taoist_idle.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 1015.5751, 1537.6285)

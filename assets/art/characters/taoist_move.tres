@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://k0g44x3gw6p7"]
+
+[ext_resource type="Texture2D" uid="uid://rvpgwm8km0w4" path="res://assets/art/characters/taoist_move.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 1026.9877, 1530.4957)

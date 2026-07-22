@@ -9,15 +9,20 @@ class_name TreasureGoblin
 
 var _escape_direction: Vector2
 var _alive: bool = true
+var _run_tex: Texture2D
 
 func _ready() -> void:
 	super._ready()
 	add_to_group("enemy")
 	add_to_group("goblin")
+	_run_tex = load("res://assets/art/enemies/goblin_run.tres")
+	var sprite := $Sprite as Sprite2D
+	if sprite:
+		sprite.scale = Vector2(0.052, 0.052)
 	# 朝远离玩家的方向逃跑
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() > 0:
-		var player = players[0]
+		var player := players[0] as Node2D
 		_escape_direction = (global_position - player.global_position).normalized()
 	else:
 		_escape_direction = Vector2.RIGHT
@@ -42,6 +47,12 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	velocity = _escape_direction * move_speed
+	var sprite := $Sprite as Sprite2D
+	if sprite:
+		if _run_tex:
+			sprite.texture = _run_tex
+		var sx: float = abs(sprite.scale.x)
+		sprite.scale.x = -sx if velocity.x < 0 else sx
 	move_and_slide()
 
 func _process(_delta: float) -> void:

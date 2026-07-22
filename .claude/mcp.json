@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "godot-mcp": {
+    "godot": {
       "command": "npx",
-      "args": [
-        "mcp-remote",
-        "http://localhost:9080/mcp"
-      ]
+      "args": ["@coding-solo/godot-mcp"],
+      "env": {
+        "DEBUG": "true"
+      }
     }
   }
 }

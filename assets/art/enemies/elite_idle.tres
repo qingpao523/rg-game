@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://b1nu40pcejpsf"]
+
+[ext_resource type="Texture2D" uid="uid://7xu6jfhiacmw" path="res://assets/art/enemies/elite_idle.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 1022.7079, 1536.202)

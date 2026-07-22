@@ -1,0 +1,24 @@
+[gd_scene load_steps=6 format=4]
+
+[ext_resource type="Script" path="res://assets/scripts/combat/SkeletonMinion.gd" id="1"]
+[ext_resource type="AtlasTexture" path="res://assets/art/summons/skeleton_idle.tres" id="2"]
+[ext_resource type="Script" path="res://assets/scripts/visual/VisualAnimator.gd" id="3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_archer"]
+size = Vector2(18, 18)
+
+[node name="SkeletonArcher" type="CharacterBody2D"]
+script = ExtResource("1")
+collision_layer = 0
+collision_mask = 2
+groups = ["minion"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_archer")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2")
+centered = true
+
+[node name="VisualAnimator" type="Node" parent="."]
+script = ExtResource("3")

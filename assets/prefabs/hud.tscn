@@ -1,6 +1,34 @@
-[gd_scene load_steps=2 format=4 uid="uid://b0x0x0hud"]
+[gd_scene load_steps=5 format=4 uid="uid://b0x0x0hud"]
 
 [ext_resource type="Script" path="res://assets/scripts/ui/HudView.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar_bg"]
+bg_color = Color(0.15, 0.15, 0.18, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hp_fill"]
+bg_color = Color(0.75, 0.15, 0.15, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mana_fill"]
+bg_color = Color(0.15, 0.35, 0.75, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_exp_fill"]
+bg_color = Color(0.15, 0.65, 0.3, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1")
@@ -20,8 +48,10 @@ anchor_left = 0.0
 anchor_top = 0.0
 anchor_right = 0.0
 anchor_bottom = 0.0
-offset_right = 300.0
-offset_bottom = 200.0
+offset_left = 34.0
+offset_top = 78.0
+offset_right = 262.0
+offset_bottom = 224.0
 grow_horizontal = 0
 
 [node name="LevelLabel" type="Label" parent="Control/VBox"]
@@ -30,14 +60,35 @@ text = "Lv.1"
 theme_override_font_sizes/font_size = 24
 theme_override_colors/font_color = Color(0.95, 0.95, 1, 1)
 
+[node name="ExpBar" type="ProgressBar" parent="Control/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 16)
+max_value = 100
+value = 0
+show_percentage = false
+theme_override_colors/font_color = Color(0.75, 0.75, 0.9, 1)
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_exp_fill")
+
+[node name="Label" type="Label" parent="Control/VBox/ExpBar"]
+layout_mode = 0
+offset_left = 60
+offset_top = 0
+offset_right = 190
+offset_bottom = 16
+text = "0/20"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+
 [node name="HPBar" type="ProgressBar" parent="Control/VBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(250, 24)
 max_value = 100
 value = 100
 show_percentage = false
-theme_override_styles/background = null
-theme_override_styles/fill = null
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hp_fill")
 
 [node name="Label" type="Label" parent="Control/VBox/HPBar"]
 layout_mode = 0
@@ -54,6 +105,8 @@ custom_minimum_size = Vector2(250, 24)
 max_value = 100
 value = 100
 show_percentage = false
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_mana_fill")
 
 [node name="Label" type="Label" parent="Control/VBox/ManaBar"]
 layout_mode = 0
@@ -77,8 +130,24 @@ theme_override_colors/font_color = Color(0.75, 0.75, 0.8, 1)
 [node name="SkillContainer" type="HBoxContainer" parent="Control/VBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 40)
+visible = false
 
 [node name="PauseButton" type="Button" parent="Control/VBox"]
 layout_mode = 2
 text = "||"
-custom_minimum_size = Vector2(40, 30)
+custom_minimum_size = Vector2(64, 44)
+
+[node name="SkillDisplay" type="HBoxContainer" parent="Control"]
+layout_mode = 0
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 72.0
+offset_top = -352.0
+offset_right = -72.0
+offset_bottom = -256.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 10
+alignment = 1

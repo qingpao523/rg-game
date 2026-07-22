@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://dk8omv8rvmvla"]
+
+[ext_resource type="Texture2D" uid="uid://5ynpwb3ha1k" path="res://assets/art/characters/pharaoh_move.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 1015.5751, 1537.6285)

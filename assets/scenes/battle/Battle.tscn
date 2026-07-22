@@ -1,13 +1,92 @@
-[gd_scene load_steps=6 format=4 uid="uid://b0x0battle"]
+[gd_scene load_steps=14 format=4 uid="uid://b0x0battle"]
 
 [ext_resource type="Script" path="res://assets/scripts/battle/BattleScene.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://b0x0x0player" path="res://assets/prefabs/player.tscn" id="2"]
 [ext_resource type="Script" path="res://assets/scripts/skill/SkillRunner.gd" id="3"]
 [ext_resource type="Script" path="res://assets/scripts/spawn/WaveDirector.gd" id="4"]
 [ext_resource type="Script" path="res://assets/scripts/spawn/TreasureGoblinDirector.gd" id="5"]
+[ext_resource type="Texture2D" path="res://assets/art/maps/broken_dragon_palace_bg.png" id="6"]
+[ext_resource type="AtlasTexture" path="res://assets/art/maps/black_gold_crack_overlay.tres" id="7"]
+[ext_resource type="AtlasTexture" path="res://assets/art/maps/black_fog_edge_overlay.tres" id="8"]
+[ext_resource type="AtlasTexture" path="res://assets/art/maps/catastrophe_overlay.tres" id="9"]
+[ext_resource type="AtlasTexture" path="res://assets/art/maps/dragon_bone_prop.tres" id="10"]
+[ext_resource type="AtlasTexture" path="res://assets/art/maps/bronze_altar_prop.tres" id="11"]
+[ext_resource type="AtlasTexture" path="res://assets/art/maps/broken_palace_wall_prop.tres" id="12"]
+[ext_resource type="AtlasTexture" path="res://assets/art/maps/rune_decal.tres" id="13"]
 
 [node name="Battle" type="Node2D"]
 script = ExtResource("1")
+
+[node name="Background" type="Sprite2D" parent="."]
+texture = ExtResource("6")
+centered = true
+scale = Vector2(3, 3)
+position = Vector2(2508, 1411.5)
+z_index = -999
+
+[node name="CrackOverlay" type="Sprite2D" parent="."]
+modulate = Color(1, 0.92, 0.72, 0.28)
+texture = ExtResource("7")
+centered = true
+position = Vector2(2508, 1411.5)
+scale = Vector2(3, 3)
+z_index = -990
+
+[node name="CatastropheOverlay" type="Sprite2D" parent="."]
+modulate = Color(1, 0.35, 0.25, 0.18)
+texture = ExtResource("9")
+centered = true
+position = Vector2(2508, 1411.5)
+scale = Vector2(3, 3)
+z_index = -985
+visible = false
+
+[node name="DragonBoneProp" type="Sprite2D" parent="."]
+texture = ExtResource("10")
+centered = true
+position = Vector2(4030, 815)
+scale = Vector2(0.44, 0.44)
+z_index = -960
+
+[node name="BronzeAltarProp" type="Sprite2D" parent="."]
+texture = ExtResource("11")
+centered = true
+position = Vector2(3720, 1980)
+scale = Vector2(0.18, 0.18)
+z_index = -955
+
+[node name="BrokenPalaceWallProp" type="Sprite2D" parent="."]
+texture = ExtResource("12")
+centered = true
+position = Vector2(1040, 2220)
+scale = Vector2(0.5, 0.5)
+z_index = -960
+
+[node name="RuneDecalA" type="Sprite2D" parent="."]
+modulate = Color(0.8, 0.95, 1, 0.62)
+texture = ExtResource("13")
+centered = true
+position = Vector2(1610, 1130)
+scale = Vector2(0.22, 0.22)
+z_index = -940
+
+[node name="RuneDecalB" type="Sprite2D" parent="."]
+modulate = Color(1, 0.55, 0.38, 0.5)
+texture = ExtResource("13")
+centered = true
+position = Vector2(3430, 1840)
+rotation = 1.5708
+scale = Vector2(0.18, 0.18)
+z_index = -940
+
+[node name="FogEdgeOverlay" type="Sprite2D" parent="."]
+modulate = Color(1, 1, 1, 0.18)
+texture = ExtResource("8")
+centered = true
+position = Vector2(2508, 1411.5)
+scale = Vector2(3, 3)
+z_index = -930
+visible = false
 
 [node name="Player" parent="." instance=ExtResource("2")]
 

@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://cwbyft0p6yif8"]
+
+[ext_resource type="Texture2D" uid="uid://bmv74nwoi3u0t" path="res://assets/art/enemies/charger_idle.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(0, 0, 1018.4281, 1523.3629)

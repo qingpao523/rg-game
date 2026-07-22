@@ -2,6 +2,7 @@
 ## 中毒、灼烧、冰冻、感电等效果
 
 extends RefCounted
+class_name StatusEffect
 
 enum Type {
 	NONE,
