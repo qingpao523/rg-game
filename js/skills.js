@@ -45,7 +45,7 @@ const Skills = {
   bh_missile(s, c, d, dt) {
     s.t -= dt;
     if (s.t > 0) return;
-    const targets = Enemies.nearestN(Player.x, Player.y, 620, d.count);
+    const targets = this._getTargets(d.count, 620);
     if (!targets.length) { s.t = 0.2; return; }
     s.t = d.cd * Player.cdMult;
     targets.forEach((e, i) => {
@@ -58,11 +58,20 @@ const Skills = {
     });
   },
 
+  // P0 目标选取：单投射物锁定最近敌人，多投射物保持 nearestN 扇形
+  _getTargets(count, range) {
+    if (count <= 1) {
+      const e = Enemies.nearest(Player.x, Player.y, range);
+      return e ? [e] : [];
+    }
+    return Enemies.nearestN(Player.x, Player.y, range, count);
+  },
+
   // ---------- 行为：爆裂火球 ----------
   bh_fireball(s, c, d, dt) {
     s.t -= dt;
     if (s.t > 0) return;
-    const targets = Enemies.nearestN(Player.x, Player.y, 640, d.count);
+    const targets = this._getTargets(d.count, 640);
     if (!targets.length) { s.t = 0.2; return; }
     s.t = d.cd * Player.cdMult;
     for (const e of targets) {
@@ -446,6 +455,24 @@ const Skills = {
         continue;
       }
       if (z.t >= z.dur) { this.zones.splice(i, 1); continue; }
+      if (z.kind === 'spring') {
+        // P3 源质泉：站上 3 秒汲取 50 经验
+        if (!z.given) {
+          if (M.dist(z.x, z.y, Player.x, Player.y) < z.r) {
+            z.stand += dt;
+            if (z.stand >= 3) {
+              z.given = true;
+              Player.gainExp(50);
+              FX.text(Player.x, Player.y - 80, '+50 经验', '#8fd3ff', 20);
+              FX.ring(z.x, z.y, 20, z.r, '#8fd3ff', 0.5, 4);
+              if (typeof SFX !== 'undefined') SFX.play('levelup');
+            }
+          } else {
+            z.stand = Math.max(0, z.stand - dt * 0.5);
+          }
+        }
+        continue;
+      }
       z.tick -= dt;
       if (z.tick > 0) continue;
       z.tick = 0.5;
@@ -592,6 +619,19 @@ const Skills = {
     }
   },
 
+  // P2 流派判定：统计 owned 技能 flow 标签频次，最高频流派名
+  dominantFlow() {
+    const cnt = {};
+    for (const s of this.owned) {
+      const c = this.cfgOf(s.id);
+      if (!c || !c.flow) continue;
+      cnt[c.flow] = (cnt[c.flow] || 0) + (CONFIG.evolutions[s.id] ? 3 : 1);
+    }
+    let best = null, bn = 0;
+    for (const f in cnt) if (cnt[f] > bn) { bn = cnt[f]; best = f; }
+    return best || '无';
+  },
+
   // ---------- 升级三选一 ----------
   genChoices() {
     const out = [];
@@ -670,15 +710,18 @@ const Skills = {
     if (ch.type === 'up') {
       this.getSkill(ch.id).lv++;
       this.onLevelUp(ch.id);
+      if (typeof SFX !== 'undefined') SFX.play('levelup');
     } else if (ch.type === 'new') {
       this.owned.push({ id: ch.id, lv: 1, t: 0, idle: 0 });
       this.onLevelUp(ch.id);
+      if (typeof SFX !== 'undefined') SFX.play('levelup');
     } else if (ch.type === 'evo') {
       const ev = CONFIG.evolutions[ch.id];
       this.owned = this.owned.filter(s => s.id !== ev.main && s.id !== ev.catalyst);
       this.consumed.add(ev.main); this.consumed.add(ev.catalyst);
       this.owned.push({ id: ch.id, lv: 1, t: 0, idle: 0 });
       this.evoCount++;
+      if (typeof SFX !== 'undefined') SFX.play('evolve');
       UI.toast('高危处置方案解锁：' + ev.name);
       FX.imgFx('effects/upgrade_effect.png', Player.x, Player.y - 60, 220, { life: 0.8, scale0: 0.6, scale1: 1.4 });
     } else if (ch.type === 'stat') {
@@ -725,6 +768,23 @@ const Skills = {
         ctx.globalAlpha = 0.25 + k * 0.4;
         ctx.fillStyle = '#ff5a3c';
         ctx.beginPath(); ctx.arc(x, y, z.r * k, 0, Math.PI * 2); ctx.fill();
+      } else if (z.kind === 'spring') {
+        const pulse = 0.5 + Math.sin(z.t * 4) * 0.15;
+        ctx.globalAlpha = z.given ? 0.12 : 0.22 + pulse * 0.1;
+        ctx.fillStyle = '#8fd3ff';
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.7;
+        ctx.strokeStyle = '#8fd3ff';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.stroke();
+        if (!z.given && z.stand > 0) {
+          ctx.globalAlpha = 0.95;
+          ctx.strokeStyle = '#f0d9a0';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(x, y, z.r * 0.6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, z.stand / 3));
+          ctx.stroke();
+        }
       }
       ctx.restore();
     }

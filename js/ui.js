@@ -144,6 +144,23 @@ const UI = {
     ctx.fillStyle = 'rgba(201,168,106,0.5)';
     ctx.fillText('生存 8-12 分钟 · 拦截哥布林 · 解锁高危处置方案', W / 2, y + 52);
     ctx.restore();
+
+    // P1：天赋之树入口按钮
+    const save = (typeof Storage !== 'undefined') ? Storage.Load() : { level: 1, talentPoints: 0, achievements: [] };
+    const tbw = 320, tbh = 64, tbx = (W - tbw) / 2, tby = y + 72;
+    ctx.save();
+    ctx.fillStyle = 'rgba(28,24,12,0.92)';
+    ctx.strokeStyle = 'rgba(201,168,106,0.85)';
+    ctx.lineWidth = 2;
+    this.rr(ctx, tbx, tby, tbw, tbh, 12);
+    ctx.fill(); ctx.stroke();
+    this.goldText(ctx, '天 赋 之 树', W / 2, tby + 30, 24);
+    ctx.font = '13px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(200,200,210,0.8)';
+    ctx.fillText('局外 Lv.' + save.level + ' · 天赋点 ' + (save.talentPoints || 0) + ' · 成就 ' + (save.achievements ? save.achievements.length : 0) + '/12', W / 2, tby + 52);
+    ctx.restore();
+    this.talentBtn = { x: tbx, y: tby, w: tbw, h: tbh };
   },
 
   // ---------- HUD ----------
@@ -200,9 +217,9 @@ const UI = {
     ctx.fillRect(this.pauseBtn.x - 7, this.pauseBtn.y - 9, 5, 18);
     ctx.fillRect(this.pauseBtn.x + 2, this.pauseBtn.y - 9, 5, 18);
 
-    // 技能栏
-    const n = CONFIG.skillSlots, size = 56, gap = 8;
-    const x0 = (W - (n * size + (n - 1) * gap)) / 2, sy = 1208;
+    // 技能栏（自适应 8 格）
+    const n = CONFIG.skillSlots, size = 48, gap = 6;
+    const x0 = (W - (n * size + (n - 1) * gap)) / 2, sy = 1212;
     for (let i = 0; i < n; i++) {
       const x = x0 + i * (size + gap);
       ctx.fillStyle = 'rgba(12,12,20,0.8)';
@@ -213,7 +230,7 @@ const UI = {
       if (s) {
         const c = Skills.cfgOf(s.id);
         const icon = Assets.img(c.icon);
-        if (icon) ctx.drawImage(icon, x + 4, sy + 4, size - 8, size - 8);
+        if (icon) ctx.drawImage(icon, x + 3, sy + 3, size - 6, size - 6);
         if (CONFIG.evolutions[s.id]) {
           ctx.strokeStyle = '#f0d9a0';
           ctx.lineWidth = 2;
@@ -221,11 +238,11 @@ const UI = {
           ctx.stroke();
         }
         ctx.fillStyle = '#0c0c14';
-        ctx.beginPath(); ctx.arc(x + size - 10, sy + size - 10, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + size - 9, sy + size - 9, 10, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#f0d9a0';
-        ctx.font = 'bold 12px "PingFang SC", sans-serif';
+        ctx.font = 'bold 11px "PingFang SC", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(CONFIG.evolutions[s.id] ? 'EX' : s.lv, x + size - 10, sy + size - 6);
+        ctx.fillText(CONFIG.evolutions[s.id] ? 'EX' : s.lv, x + size - 9, sy + size - 5);
       }
     }
 
@@ -524,6 +541,7 @@ const UI = {
       ['存活时间', this.fmtTime(r.time)],
       ['处置敌人', r.kills + ' 个'],
       ['最终等级', 'Lv.' + r.level],
+      ['主导流派', r.flow || '无'],
       ['高危方案解锁', r.evoCount + ' 个'],
       ['抵达波次', '第 ' + r.wave + ' 波'],
     ];
@@ -612,7 +630,11 @@ const UI = {
 
   tap(x, y) {
     const st = Game.state;
+    if (typeof TalentsUI !== 'undefined' && TalentsUI.open) {
+      return TalentsUI.tap(x, y);
+    }
     if (st === 'menu') {
+      if (this.talentBtn && this.inRect(x, y, this.talentBtn)) { TalentsUI.toggle(); return true; }
       for (const c of this.menuCards) {
         if (this.inRect(x, y, c)) { Game.start(c.classId); return true; }
       }

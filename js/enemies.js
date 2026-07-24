@@ -8,6 +8,10 @@ const Enemies = {
   spawnT: 0,
   eliteT: 0,
   goblinT: 0,
+  eventDone: false,   // P3：120-240s 低谷事件是否已触发
+  eventType: null,    // 'spring' | 'rift'
+  eventT: 0,          // 裂界裂缝剩余时间
+  expDouble: false,   // 裂界裂缝期间经验翻倍
 
   reset() {
     this.list.length = 0;
@@ -18,6 +22,10 @@ const Enemies = {
     this.spawnT = 1;
     this.eliteT = CONFIG.waves.eliteFirstTime;
     this.goblinT = CONFIG.waves.goblinFirst;
+    this.eventDone = false;
+    this.eventType = null;
+    this.eventT = 0;
+    this.expDouble = false;
   },
 
   // ---------- 查询 ----------
@@ -75,6 +83,9 @@ const Enemies = {
     e.hp -= d;
     e.flash = 0.12;
     FX.text(e.x + M.rand(-8, 8), e.y - e.r * 2 - 8, d, opts.crit ? '#ffd75e' : (opts.color || '#fff'), opts.crit ? 26 : 17);
+    if (typeof SFX !== 'undefined') SFX.play(opts.crit ? 'crit' : 'hit');
+    FX.glow(e.x, e.y - e.r, 30, opts.crit ? '#ffd75e' : '#ffffff', 0.1, opts.crit ? 0.4 : 0.3);
+    if (typeof Game !== 'undefined') Game.hitstopFrames = Math.max(Game.hitstopFrames, opts.crit ? 6 : 3);
     if (e.hp <= 0) { this.kill(e); return true; }
     return false;
   },
@@ -93,6 +104,12 @@ const Enemies = {
     Skills.onEnemyKilled(e);
     if (e.type === 'goblin') {
       this.drops.push({ kind: 'chest', x: e.x, y: e.y, v: 0, anim: 0 });
+      // P0：哥布林额外掉 2-3 个高价值经验碎片 + 1 个源质碎片
+      const shards = M.randInt(2, 3);
+      for (let i = 0; i < shards; i++) {
+        this.drops.push({ kind: 'exp', x: e.x + M.rand(-24, 24), y: e.y + M.rand(-24, 24), v: 8, anim: M.rand(0, 5) });
+      }
+      this.drops.push({ kind: 'shard', x: e.x + M.rand(-16, 16), y: e.y + M.rand(-16, 16), v: 1, anim: M.rand(0, 5) });
       this.goblin = null;
       UI.toast('宝藏哥布林已被处置，掉落稀有奖励');
     } else {
@@ -148,9 +165,29 @@ const Enemies = {
       UI.banner('第 ' + w + ' 波', w >= 5 ? '裂界压力持续攀升' : '');
     }
 
+    // P3：120-240s 低谷期随机触发一种节奏事件
+    if (!this.eventDone && Game.time >= 120 && Game.time <= 240) {
+      this.eventDone = true;
+      this.eventType = Math.random() < 0.5 ? 'spring' : 'rift';
+      if (this.eventType === 'spring') {
+        const a = M.rand(0, Math.PI * 2);
+        Skills.zones.push({ kind: 'spring', x: Player.x + Math.cos(a) * 220, y: Player.y + Math.sin(a) * 220, r: 110, t: 0, dur: 30, stand: 0, given: false });
+        UI.banner('源质泉涌现', '站上泉眼 3 秒汲取 50 经验');
+      } else {
+        this.eventT = 15;
+        this.expDouble = true;
+        UI.banner('裂界裂缝撕开', '15 秒内刷怪密度×3 · 经验翻倍');
+        UI.redPulse(1.5);
+      }
+    }
+    if (this.eventType === 'rift' && this.eventT > 0) {
+      this.eventT -= dt;
+      if (this.eventT <= 0) { this.expDouble = false; this.eventType = null; }
+    }
+
     this.spawnT -= dt;
     if (this.spawnT <= 0 && this.list.filter(e => !e.dead).length < W.maxAlive) {
-      const interval = Math.max(W.minInterval, W.baseInterval - Game.time / 600);
+      const interval = Math.max(W.minInterval, W.baseInterval - Game.time / 600) / (this.eventType === 'rift' ? 3 : 1);
       this.spawnT = interval;
       const batch = Math.min(12, W.batchBase + Math.floor(this.wave * W.batchPerWave));
       for (let i = 0; i < batch; i++) {
@@ -350,8 +387,18 @@ const Enemies = {
       }
       if (dd < 28) {
         if (d.kind === 'exp') {
-          Player.gainExp(d.v);
-          FX.text(Player.x, Player.y - 70, '+' + d.v + ' 经验', '#8fd3ff', 14);
+          const v = this.expDouble ? d.v * 2 : d.v;
+          Player.gainExp(v);
+          if (typeof SFX !== 'undefined') SFX.play('pickup');
+          FX.text(Player.x, Player.y - 70, '+' + v + ' 经验', '#8fd3ff', 14);
+        } else if (d.kind === 'shard') {
+          if (typeof SFX !== 'undefined') SFX.play('pickup');
+          if (typeof Storage !== 'undefined') {
+            const sd = Storage.Load();
+            sd.gold = (sd.gold || 0) + 1;
+            Storage.Save(sd);
+          }
+          FX.text(Player.x, Player.y - 70, '+1 源质碎片', '#c9a86a', 15);
         } else {
           Game.applyGoblinReward();
         }
@@ -367,6 +414,16 @@ const Enemies = {
       Assets.drawSprite(ctx, 'drops/pickup_glow.png', x, y, d.kind === 'chest' ? 70 : 40, { alpha: 0.7 });
       if (d.kind === 'exp') {
         Assets.drawSprite(ctx, 'drops/experience_crystal.png', x, y, d.v >= 4 ? 34 : 24, {});
+      } else if (d.kind === 'shard') {
+        ctx.save();
+        ctx.translate(x, y - 6);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = '#c9a86a';
+        ctx.strokeStyle = '#f0d9a0';
+        ctx.lineWidth = 2;
+        ctx.fillRect(-8, -8, 16, 16);
+        ctx.strokeRect(-8, -8, 16, 16);
+        ctx.restore();
       } else {
         ctx.save();
         ctx.translate(x, y - 14);

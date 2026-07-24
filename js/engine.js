@@ -140,6 +140,10 @@ const FX = {
   ring(x, y, r0, r1, color, life, width) {
     this.spawn({ type: 'ring', x, y, r0, r1, color, life: life || 0.4, w: width || 4 });
   },
+  // 命中环境光亮斑：径向渐变圆，快速淡出
+  glow(x, y, r, color, life, alpha) {
+    this.spawn({ type: 'glow', x, y, r: r || 30, color: color || '#fff', life: life || 0.1, alpha0: alpha != null ? alpha : 0.3, alpha1: 0, scale0: 1, scale1: 1.3 });
+  },
   bolt(x1, y1, x2, y2, color, life) {
     this.spawn({ type: 'bolt', x: x1, y: y1, x2, y2, color: color || '#9fd8ff', life: life || 0.18, scale0: 1, scale1: 1 });
   },
@@ -177,6 +181,15 @@ const FX = {
         ctx.beginPath();
         ctx.arc(x, y, e.r0 + (e.r1 - e.r0) * k, 0, Math.PI * 2);
         ctx.stroke();
+      } else if (e.type === 'glow') {
+        const rr = e.r * s;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, rr);
+        g.addColorStop(0, e.color);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, rr, 0, Math.PI * 2);
+        ctx.fill();
       } else if (e.type === 'bolt') {
         ctx.strokeStyle = e.color;
         ctx.lineWidth = 3.5;
