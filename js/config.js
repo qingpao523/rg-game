@@ -11,7 +11,7 @@ const CONFIG = {
   expNeed(lvl) { return Math.floor(5 + lvl * 3 + lvl * lvl * 0.35); },
   activeLevel(lvl) { return Math.min(5, 1 + Math.floor((lvl - 1) / 4)); },
 
-  // 17 个基础技能 Lv1-5（数组下标 0 = Lv.1）
+  // 20 个基础技能 Lv1-5（数组下标 0 = Lv.1）
   skills: {
     magic_missile: {
       name: '魔法飞弹', icon: 'icons/magic_missile.png', flow: '灾厄流', behavior: 'missile',
@@ -163,6 +163,33 @@ const CONFIG = {
         { dmg: 30, radius: 85 }, { dmg: 36, radius: 90 },
       ],
     },
+    iron_skin: {
+      name: '钢铁皮肤', icon: 'icons/frost_iron_wall.png', flow: '存续流', behavior: 'iron_skin',
+      desc: '皮肤如霜铁，被动减免所受伤害', tags: ['防御', '被动'],
+      levels: [
+        { dr: 0.06 }, { dr: 0.09 }, { dr: 0.12 },
+        { dr: 0.15 }, { dr: 0.18 },
+      ],
+    },
+    vitality: {
+      name: '生命祝福', icon: 'icons/holy_obelisk.png', flow: '存续流', behavior: 'vitality',
+      desc: '被动提升生命上限，并回复等量生命', tags: ['生存', '被动'],
+      levels: [
+        { hp: 25 }, { hp: 35 }, { hp: 45 },
+        { hp: 55 }, { hp: 70 },
+      ],
+    },
+    ice_barrier: {
+      name: '冰霜结界', icon: 'icons/ice_barrier.png', flow: '存续流', behavior: 'ice_barrier',
+      desc: '周期凝结冰盾，减速周围敌人，破裂时冻结', tags: ['防御', '控制'],
+      levels: [
+        { cd: 12, shield: 30, dur: 4, slow: 0.25, freeze: 1.0 },
+        { cd: 12, shield: 45, dur: 4.5, slow: 0.30, freeze: 1.25 },
+        { cd: 11, shield: 60, dur: 5, slow: 0.35, freeze: 1.5 },
+        { cd: 11, shield: 75, dur: 5.5, slow: 0.40, freeze: 1.75 },
+        { cd: 10, shield: 95, dur: 6, slow: 0.45, freeze: 2.0 },
+      ],
+    },
   },
 
   // 4 组进化：主技能 Lv5 + 催化技能 Lv3+，合并释放一个栏位
@@ -291,7 +318,7 @@ const CONFIG = {
       exp: 10, r: 40, drawH: 150, img: 'enemies/elite_move.png',
     },
     goblin: {
-      name: '宝藏哥布林', hp: 40, hpWave: 8, dmg: 0, dmgWave: 0, speed: 210,
+      name: '宝藏哥布林', hp: 40, hpWave: 8, dmg: 0, dmgWave: 0, speed: 170,
       exp: 15, r: 22, drawH: 76, img: 'enemies/goblin_run.png',
     },
   },

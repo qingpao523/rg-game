@@ -1,4 +1,4 @@
-// 技能系统：17 基础技能 + 4 进化、投射物、区域、召唤物、升级三选一
+// 技能系统：20 基础技能 + 4 进化、投射物、区域、召唤物、升级三选一
 const Skills = {
   owned: [],          // {id, lv, t(冷却计时), idle(buff 闲置计时)}
   consumed: new Set(),// 被进化消耗的基础技能，本局不再出现
@@ -299,6 +299,58 @@ const Skills = {
   },
 
   bh_passive() {},
+
+  // ---------- 行为：钢铁皮肤（被动减伤，与 armor 加算，Player.hurt 内封顶 30%） ----------
+  bh_iron_skin(s, c, d) {
+    Player.damageReduction = d.dr;
+  },
+
+  // ---------- 行为：生命祝福（被动，升级时生效，见 onLevelUp） ----------
+  bh_vitality() {},
+
+  // ---------- 行为：冰霜结界（周期护盾，存在时减速周围，被击破时冻结） ----------
+  bh_ice_barrier(s, c, d, dt) {
+    s.t -= dt;
+    const sh = Player.shield;
+    if (sh && sh.barrier) {
+      // 结界存在：减速周围敌人（半径 120px）
+      for (const e of Enemies.list) {
+        if (!e.dead && M.dist(Player.x, Player.y, e.x, e.y) < 120) {
+          e.slowPct = Math.max(e.slowPct || 0, d.slow);
+          e.slowT = Math.max(e.slowT || 0, 0.4);
+        }
+      }
+      return;
+    }
+    if (s.t > 0) return;
+    s.t = d.cd * Player.cdMult;
+    Player.shield = { hp: d.shield, t: d.dur, convert: 0, absorbed: 0, barrier: { freeze: d.freeze } };
+    FX.ring(Player.x, Player.y, 24, 110, '#aee6ff', 0.5, 5);
+    FX.text(Player.x, Player.y - 110, '冰霜结界', '#aee6ff', 20);
+  },
+
+  // 冰霜结界被击破：冻结周围敌人（半径 150px）
+  barrierShatter(freezeDur) {
+    FX.ring(Player.x, Player.y, 30, 150, '#aee6ff', 0.5, 6);
+    FX.imgFx('effects/frozen_field_vfx.png', Player.x, Player.y, 240, { life: 0.5, scale0: 0.5, scale1: 1.1 });
+    for (const e of Enemies.list) {
+      if (e.dead) continue;
+      if (M.dist(Player.x, Player.y, e.x, e.y) < 150) {
+        e.freezeT = Math.max(e.freezeT || 0, freezeDur);
+      }
+    }
+    Engine.addShake(4);
+  },
+
+  // 技能获得/升级时的即时效果挂载（参考焚身爆/亡者复苏的被动 hook 方式）
+  onLevelUp(id) {
+    if (id === 'vitality') {
+      const d = this.lvData(this.getSkill('vitality'));
+      Player.maxHpBonus += d.hp;
+      Player.maxHp += d.hp;
+      Player.heal(d.hp); // 回复等量生命
+    }
+  },
 
   // ---------- 投射物 ----------
   spawnProj(o) {
@@ -608,14 +660,19 @@ const Skills = {
     if (d.chance != null) parts.push('概率 ' + Math.round(d.chance * 100) + '%');
     if (d.atk != null) parts.push('强化 +' + Math.round(d.atk * 100) + '%');
     if (d.slow != null) parts.push('减速 ' + Math.round(d.slow * 100) + '%');
+    if (d.dr != null) parts.push('减伤 ' + Math.round(d.dr * 100) + '%');
+    if (d.shield != null) parts.push('护盾 ' + d.shield);
+    if (d.freeze != null) parts.push('冻结 ' + d.freeze + 's');
     return parts.join(' · ');
   },
 
   applyChoice(ch) {
     if (ch.type === 'up') {
       this.getSkill(ch.id).lv++;
+      this.onLevelUp(ch.id);
     } else if (ch.type === 'new') {
       this.owned.push({ id: ch.id, lv: 1, t: 0, idle: 0 });
+      this.onLevelUp(ch.id);
     } else if (ch.type === 'evo') {
       const ev = CONFIG.evolutions[ch.id];
       this.owned = this.owned.filter(s => s.id !== ev.main && s.id !== ev.catalyst);
