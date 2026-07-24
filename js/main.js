@@ -2,6 +2,7 @@
 const Game = {
   state: 'loading', // loading / menu / battle / upgrade / pause / dying / death
   time: 0,
+  hitstopFrames: 0, // P0 命中顿帧：>0 时跳过 update 仅 render
   choices: [],
   report: null,
   dyingT: 0,
@@ -37,6 +38,7 @@ const Game = {
 
   start(classId) {
     this.classId = classId;
+    if (typeof SFX !== 'undefined') SFX.unlock();
     Player.reset(classId);
     Skills.reset(classId);
     Enemies.reset();
@@ -52,7 +54,11 @@ const Game = {
   loop(ts) {
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000 || 0.016);
     this.lastTs = ts;
-    this.update(dt);
+    if (this.hitstopFrames > 0) {
+      this.hitstopFrames--; // 顿帧期间冻结逻辑，仅渲染
+    } else {
+      this.update(dt);
+    }
     this.render();
     requestAnimationFrame((t) => this.loop(t));
   },
@@ -78,11 +84,13 @@ const Game = {
           level: Player.level,
           evoCount: Skills.evoCount,
           wave: Enemies.wave,
+          flow: Skills.dominantFlow(),
           build: Skills.owned.map(s => {
             const c = Skills.cfgOf(s.id);
             return { icon: c.icon, name: c.name, lv: s.lv, evo: !!CONFIG.evolutions[s.id] };
           }),
         };
+        if (typeof Storage !== 'undefined') Storage.recordRun(this.report);
         this.state = 'death';
       }
     } else {
@@ -96,14 +104,29 @@ const Game = {
     ctx.fillStyle = '#050508';
     ctx.fillRect(0, 0, CONFIG.canvas.w, CONFIG.canvas.h);
     if (this.state === 'loading') { this.drawLoading(ctx); return; }
-    if (this.state === 'menu') { UI.drawMenu(ctx, this.menuT); return; }
+    if (this.state === 'menu') {
+      UI.drawMenu(ctx, this.menuT);
+      if (typeof TalentsUI !== 'undefined' && TalentsUI.open) TalentsUI.draw(ctx);
+      return;
+    }
     this.drawWorld(ctx);
+    this.applyBloom(ctx);
     UI.drawHUD(ctx);
     if (this.state === 'upgrade') UI.drawUpgrade(ctx);
     else if (this.state === 'pause') UI.drawPause(ctx);
     else if (this.state === 'dying') UI.drawDying(ctx);
     else if (this.state === 'death') UI.drawDeath(ctx);
     UI.drawToasts(ctx);
+  },
+
+  applyBloom(ctx) {
+    // P2 Bloom：将当前画面以 lighter + blur 叠加一次，制造辉光
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.18;
+    ctx.filter = 'blur(6px)';
+    ctx.drawImage(this.canvas, 0, 0, CONFIG.canvas.w, CONFIG.canvas.h);
+    ctx.restore();
   },
 
   drawWorld(ctx) {
@@ -179,6 +202,7 @@ const Game = {
     if (this.state !== 'battle') return;
     this.state = 'dying';
     this.dyingT = 1.4;
+    if (typeof SFX !== 'undefined') SFX.play('death');
     Engine.addShake(12);
   },
 

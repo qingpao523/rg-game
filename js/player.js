@@ -31,11 +31,26 @@ const Player = {
     this.damageReduction = 0; // 钢铁皮肤：与 armor 加算，封顶 30%
     this.maxHpBonus = 0;      // 生命祝福：技能提供的生命上限
     this.dead = false;
+
+    // P1：应用局外天赋加成
+    if (typeof Talents !== 'undefined') {
+      const b = Talents.bonuses();
+      if (b.dmg) this.dmgMult += b.dmg;
+      if (b.hp) { this.maxHp += b.hp; this.hp = this.maxHp; }
+      if (b.speed) this.speed *= 1 + b.speed;
+      if (b.pickup) this.pickup *= 1 + b.pickup;
+      if (b.manaRegen) this.manaRegen *= 1 + b.manaRegen;
+      if (b.armor) this.damageReduction += b.armor;
+      this.talentBonus = b;
+    }
   },
 
   get armor() { return this.cfg.passive.armor || 0; },
-  get cdMult() { return this.cfg.passive.cdMult || 1; },
-  get summonMult() { return this.cfg.passive.summonMult || 1; },
+  get cdMult() {
+    const cd = this.talentBonus && this.talentBonus.cd ? 1 - this.talentBonus.cd : 1;
+    return this.cfg.passive.cdMult * cd;
+  },
+  get summonMult() { return this.cfg.passive.summonMult * (this.talentBonus && this.talentBonus.summonDmg ? 1 + this.talentBonus.summonDmg : 1); },
 
   activeLv() { return CONFIG.activeLevel(this.level); },
   activeData() {

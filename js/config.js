@@ -233,9 +233,9 @@ const CONFIG = {
     flash_slash: {
       name: '一闪', icon: 'icons/flash_slash.png', desc: '无敌突进斩，击杀返还冷却',
       levels: [
-        { dmg: 40, cd: 8, invuln: 0.30, killCd: 0.50 }, { dmg: 55, cd: 7.5, invuln: 0.35, killCd: 0.55 },
-        { dmg: 70, cd: 7, invuln: 0.40, killCd: 0.60 }, { dmg: 85, cd: 6.5, invuln: 0.45, killCd: 0.65 },
-        { dmg: 100, cd: 6, invuln: 0.50, killCd: 0.70 },
+        { dmg: 40, cd: 2, invuln: 0.30, killCd: 0.50 }, { dmg: 55, cd: 2, invuln: 0.35, killCd: 0.55 },
+        { dmg: 70, cd: 2, invuln: 0.40, killCd: 0.60 }, { dmg: 85, cd: 2, invuln: 0.45, killCd: 0.65 },
+        { dmg: 100, cd: 2, invuln: 0.50, killCd: 0.70 },
       ],
     },
     sarcophagus: {
@@ -366,7 +366,7 @@ const CONFIG = {
     { id: 'pickup', name: '引力符', desc: '拾取范围 +30%', flow: '存续' },
   ],
 
-  skillSlots: 6,
+  skillSlots: 8,
   archerCap: 3,
 
   assetsExtra: [
