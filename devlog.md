@@ -421,3 +421,18 @@
   - 加载主菜单，确认默认道士选择后开始按钮可用
   - 触发 `StartButton.pressed`
   - 验证进入 `Battle.tscn` 且 `GameApp.state == PLAYING`
+
+---
+
+## 2026-07-24
+
+### H5 重构版并入 main（h5 分支合并）
+
+- 游戏从 Godot 4.7 重构为纯 H5：`index.html` + `js/`（config/assets/engine/player/skills/enemies/ui/main 共 8 个原生 JS），Canvas 2D 零 npm 依赖，`python3 -m http.server` 即玩
+- 数值全量照抄 `docs/design/skill-balance-v1.md`：17 基础技能 Lv1-5、4 组进化（陨石术/雷网审判/灾厄飞星/白骨军势，主 Lv5+催化 Lv3 合并释放栏位）、5 职业主动技、敌人 HP 公式（杂兵 20+5/波、冲锋 15+3/波、精英 80+20/波）
+- 玩法闭环：主菜单选职业 → 战斗（WASD/虚拟摇杆移动、自动技能、升级三选一"魔契之书"、主动技耗蓝冷却、暂停）→ 死亡"处置报告"结算可重开；4 类怪行为差异 + 宝藏哥布林边缘箭头事件 + 8-12 分钟波次压力曲线
+- 美术：`assets/`（characters/icons/maps/ui 等 131 张 PNG，由 `assets/art/` 原图经 `tools/convert_assets.sh` 压缩，167MB→14MB）；单帧图 + 程序动画（浮动/倾斜/缩放脉冲/受击闪白）
+- 修复：升级三选一标题压盖第 3 条 toast —— `main.js` 将 toast 移到 overlay 之后绘制（最顶层），`ui.js` drawHUD 删除旧调用
+- 验证：Playwright 720×1280 视口 16+5 张截图目检，console 0 错误，81/81 资源加载；QA 评分 98/100（核心循环 25 + 技能进化 25 + 怪物节奏 15 + UI 15 + 美术 18）
+
+**关键决策**: 放弃引擎改用零依赖原生 Canvas 2D —— H5 分发无需构建链，浏览器直开即玩；美术资源保留原 `assets/art/` 高分辨率源图（Godot 工程不动），H5 用压缩副本，两条线可共存。
