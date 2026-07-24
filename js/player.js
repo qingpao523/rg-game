@@ -26,8 +26,10 @@ const Player = {
     this.iframes = 0;
     this.activeCd = 0;
     this.activeCdMax = 1;
-    this.shield = null; // {hp,t,convert,absorbed}
+    this.shield = null; // {hp,t,convert,absorbed,barrier}
     this.buffs = { fire: { t: 0, dmg: 0 }, thunder: { t: 0, dmg: 0, lv: 1 } };
+    this.damageReduction = 0; // 钢铁皮肤：与 armor 加算，封顶 30%
+    this.maxHpBonus = 0;      // 生命祝福：技能提供的生命上限
     this.dead = false;
   },
 
@@ -60,6 +62,8 @@ const Player = {
     if (this.shield) {
       this.shield.t -= dt;
       if (this.shield.t <= 0 || this.shield.hp <= 0) {
+        // 冰霜结界被击破（非自然到期）：冻结周围敌人
+        if (this.shield.barrier && this.shield.hp <= 0) Skills.barrierShatter(this.shield.barrier.freeze);
         const trueDmg = Math.round(this.shield.absorbed * this.shield.convert);
         if (trueDmg > 0) {
           FX.ring(this.x, this.y, 20, 170, '#ffe9a8', 0.4, 6);
@@ -79,7 +83,8 @@ const Player = {
       dmg -= absorbed;
       if (dmg <= 0) { this.hurtT = 0.25; return; }
     }
-    const d = Math.max(1, Math.round(dmg * (1 - this.armor)));
+    const red = Math.min(0.30, this.armor + this.damageReduction); // 减伤与护甲加算，封顶 30%
+    const d = Math.max(1, Math.round(dmg * (1 - red)));
     this.hp -= d;
     this.flash = 0.15;
     this.hurtT = CONFIG.player.hurtCd;
@@ -214,7 +219,7 @@ const Player = {
     if (this.shield && this.shield.hp > 0) {
       ctx.save();
       ctx.globalAlpha = 0.35 + Math.sin(this.anim * 6) * 0.1;
-      ctx.strokeStyle = '#ffe9a8';
+      ctx.strokeStyle = this.shield.barrier ? '#aee6ff' : '#ffe9a8';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(x, y - 55, 58, 0, Math.PI * 2);

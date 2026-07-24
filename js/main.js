@@ -190,7 +190,7 @@ const Game = {
     else if (r.id === 'mana') { Player.maxMana += 25; Player.mana = Player.maxMana; }
     else if (r.id === 'skill') {
       const ups = Skills.owned.filter(s => !CONFIG.evolutions[s.id] && s.lv < 5);
-      if (ups.length) M.choice(ups).lv++;
+      if (ups.length) { const s = M.choice(ups); s.lv++; Skills.onLevelUp(s.id); }
       else Player.dmgMult += 0.08;
     }
     UI.toast('缴获稀有奖励：' + r.name + '（' + r.desc + '）');

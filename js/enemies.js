@@ -110,7 +110,7 @@ const Enemies = {
   spawnAtEdge(type) {
     const cfg = CONFIG.enemies[type];
     const ang = M.rand(0, Math.PI * 2);
-    const R = 840;
+    const R = type === 'goblin' ? 520 : 840; // 哥布林出生更近，便于拦截
     const w = this.wave;
     this.list.push({
       type, cfg,
@@ -120,7 +120,10 @@ const Enemies = {
       dmg: cfg.dmg + cfg.dmgWave * (w - 1),
       speed: cfg.speed, r: cfg.r, exp: cfg.exp,
       dead: false, flash: 0, anim: M.rand(0, 5), atkT: 0,
-      state: 'chase', stateT: 0, lockX: 0, lockY: 0, life: type === 'goblin' ? 14 : 0,
+      state: 'chase', stateT: 0, lockX: 0, lockY: 0, life: type === 'goblin' ? 22 : 0,
+      arcDir: Math.random() < 0.5 ? 1 : -1,          // 哥布林弧线逃跑的绕行方向
+      spawnT: type === 'elite' ? 1.2 : 0,            // 精英出生符文预警，结束后才移动
+      slamT: 6,                                      // 精英砸地 AoE 计时
       slowPct: 0, slowT: 0, stunT: 0, freezeT: 0, pendingShatter: 0, chillT: 0,
       burnDps: 0, burnT: 0, burnSpread: 0, burnAcc: 0,
       shockStacks: 0, shockT: 0, shockAmp: 0, resDown: 0, resDownT: 0, doomAmp: 0, doomT: 0,
@@ -129,6 +132,10 @@ const Enemies = {
     if (type === 'goblin') {
       this.goblin = this.list[this.list.length - 1];
       UI.toast('宝藏哥布林现身！拦截它');
+    }
+    if (type === 'elite') {
+      const ne = this.list[this.list.length - 1];
+      FX.ring(ne.x, ne.y, 30, 130, '#ff5a3c', 1.2, 5); // 出生点符文预警圈
     }
   },
 
@@ -156,7 +163,9 @@ const Enemies = {
       this.eliteT = W.eliteInterval;
       const n = Math.min(W.eliteCap, 1 + Math.floor((Game.time - W.eliteFirstTime) / 150));
       for (let i = 0; i < n; i++) this.spawnAtEdge('elite');
-      UI.toast('精英单位进入裂界');
+      UI.banner('高危单位：司灾铜像苏醒');
+      Engine.addShake(8);
+      UI.redPulse(1.5);
     }
     this.goblinT -= dt;
     if (this.goblinT <= 0) {
@@ -185,6 +194,8 @@ const Enemies = {
   updateOne(e, dt) {
     e.anim += dt;
     e.flash = Math.max(0, e.flash - dt);
+    // 精英出生符文预警期间不行动
+    if (e.spawnT > 0) { e.spawnT -= dt; return; }
     e.atkT -= dt;
     e.resDownT -= dt; e.shockT -= dt; e.doomT -= dt;
     if (e.shockT <= 0) e.shockStacks = 0;
@@ -228,10 +239,15 @@ const Enemies = {
         UI.toast('宝藏哥布林逃离了裂界');
         return;
       }
-      const away = Math.atan2(e.y - Player.y, e.x - Player.x) + Math.sin(e.anim * 3) * 0.5;
-      e.faceX = Math.cos(away) > 0 ? 1 : -1;
-      e.x += Math.cos(away) * spd * dt;
-      e.y += Math.sin(away) * spd * dt;
+      // 弧线逃跑：径向逃逸 ≈ 总速度 85%，叠加切向漂移绕玩家跑弧线
+      const ang = Math.atan2(e.y - Player.y, e.x - Player.x);
+      const rx = Math.cos(ang), ry = Math.sin(ang);      // 径向（远离玩家）
+      const tx = -ry * e.arcDir, ty = rx * e.arcDir;     // 切向（绕玩家弧线）
+      const vx = rx * 0.85 + tx * 0.527;                 // 0.527 = sqrt(1 - 0.85^2)
+      const vy = ry * 0.85 + ty * 0.527;
+      e.x += vx * spd * dt;
+      e.y += vy * spd * dt;
+      e.faceX = vx >= 0 ? 1 : -1;
       return;
     }
 
@@ -251,6 +267,8 @@ const Enemies = {
         e.y += e.lockY * e.cfg.chargeSpeed * dt;
         if (e.stateT <= 0) { e.state = 'rest'; e.stateT = 0.8; }
       } else if (e.stateT <= 0) e.state = 'chase';
+    } else if (e.type === 'elite') {
+      this.updateElite(e, spd, dt);
     } else {
       this.moveToward(e, target.x, target.y, spd, dt);
     }
@@ -261,6 +279,34 @@ const Enemies = {
       if (isPlayer) Player.hurt(e.dmg);
       else Skills.hurtSummon(target, e.dmg);
     }
+  },
+
+  // ---------- 精英：砸地 AoE ----------
+  slamRadius() { return Math.min(150, 100 + 5 * this.wave); },
+  slamDamage() { return 12 + 2 * this.wave; },
+
+  updateElite(e, spd, dt) {
+    if (e.state === 'slamTele') {
+      // 灾纹预警 1s：原地蓄力不移动（预警圈在 draw 中绘制）
+      e.stateT -= dt;
+      if (e.stateT <= 0) {
+        e.state = 'chase';
+        e.slamT = 6;
+        const r = this.slamRadius();
+        FX.ring(e.x, e.y, 20, r, '#ff5a3c', 0.4, 6);
+        FX.imgFx('effects/hit_effect.png', e.x, e.y, r * 1.5, { life: 0.3 });
+        Engine.addShake(8);
+        if (M.dist(e.x, e.y, Player.x, Player.y) < r + 26) Player.hurt(this.slamDamage());
+      }
+      return;
+    }
+    e.slamT -= dt;
+    if (e.slamT <= 0) {
+      e.state = 'slamTele';
+      e.stateT = 1.0;
+      return;
+    }
+    this.moveToward(e, Player.x, Player.y, spd, dt);
   },
 
   moveToward(e, tx, ty, spd, dt) {
@@ -358,6 +404,37 @@ const Enemies = {
         ctx.strokeStyle = '#ff5a3c';
         ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(x, y - e.r, e.r + 12, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 精英出生符文预警圈（1.2s 后精英才开始移动）
+      if (e.spawnT > 0) {
+        const k = 1 - e.spawnT / 1.2;
+        ctx.save();
+        ctx.globalAlpha = 0.5 + Math.sin(e.anim * 16) * 0.2;
+        ctx.strokeStyle = '#ff5a3c';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath(); ctx.arc(x, y - e.r, e.r + 26, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.18 + k * 0.3;
+        ctx.fillStyle = '#ff5a3c';
+        ctx.beginPath(); ctx.arc(x, y - e.r, (e.r + 26) * k, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // 精英砸地灾纹预警（1s 后爆发）
+      if (e.type === 'elite' && e.state === 'slamTele') {
+        const sr = this.slamRadius();
+        const k = 1 - e.stateT / 1.0;
+        ctx.save();
+        ctx.globalAlpha = 0.75;
+        ctx.strokeStyle = '#ff5a3c';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, sr, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 0.22 + k * 0.35;
+        ctx.fillStyle = '#ff5a3c';
+        ctx.beginPath(); ctx.arc(x, y, sr * k, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
 

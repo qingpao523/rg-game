@@ -2,6 +2,7 @@
 const UI = {
   toasts: [],
   bannerState: null,
+  redPulseT: 0, // 精英出场红边脉冲剩余时间
   menuCards: [],
   upgradeCards: [],
   pauseButtons: [],
@@ -9,9 +10,10 @@ const UI = {
   pauseBtn: { x: 672, y: 160, r: 26 },
   activeBtn: { x: 614, y: 1064, r: 56 },
 
-  reset() { this.toasts.length = 0; this.bannerState = null; },
+  reset() { this.toasts.length = 0; this.bannerState = null; this.redPulseT = 0; },
   toast(msg) { this.toasts.push({ msg, t: 0, life: 3 }); if (this.toasts.length > 4) this.toasts.shift(); },
   banner(text, sub) { this.bannerState = { text, sub: sub || '', t: 0, life: 2.2 }; },
+  redPulse(dur) { this.redPulseT = dur; }, // 精英出场：屏幕红边脉冲
 
   update(dt) {
     for (let i = this.toasts.length - 1; i >= 0; i--) {
@@ -23,6 +25,7 @@ const UI = {
       this.bannerState.t += dt;
       if (this.bannerState.t > this.bannerState.life) this.bannerState = null;
     }
+    this.redPulseT = Math.max(0, this.redPulseT - dt);
   },
 
   fmtTime(s) {
@@ -282,6 +285,17 @@ const UI = {
 
     this.drawGoblinArrow(ctx);
     this.drawBanner(ctx);
+
+    // 精英出场：屏幕红边脉冲
+    if (this.redPulseT > 0) {
+      const k = this.redPulseT / 1.5;
+      const a = (0.28 + Math.sin(Game.time * 18) * 0.12) * Math.min(1, k * 2.5);
+      const g = ctx.createRadialGradient(360, 640, 320, 360, 640, 740);
+      g.addColorStop(0, 'rgba(200,0,0,0)');
+      g.addColorStop(1, `rgba(220,30,30,${Math.max(0, a)})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, CONFIG.canvas.h);
+    }
 
     // 低血量警告
     if (Player.hp / Player.maxHp < 0.3) {
