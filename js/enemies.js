@@ -1,0 +1,400 @@
+// 怪物 AI、波次导演、宝藏哥布林、经验掉落
+const Enemies = {
+  list: [],
+  drops: [],
+  goblin: null,
+  wave: 1,
+  kills: 0,
+  spawnT: 0,
+  eliteT: 0,
+  goblinT: 0,
+
+  reset() {
+    this.list.length = 0;
+    this.drops.length = 0;
+    this.goblin = null;
+    this.wave = 1;
+    this.kills = 0;
+    this.spawnT = 1;
+    this.eliteT = CONFIG.waves.eliteFirstTime;
+    this.goblinT = CONFIG.waves.goblinFirst;
+  },
+
+  // ---------- 查询 ----------
+  nearest(x, y, maxD, exclude) {
+    let best = null, bd = maxD || 1e9;
+    for (const e of this.list) {
+      if (e.dead || (exclude && exclude.has(e))) continue;
+      const d = M.dist(x, y, e.x, e.y);
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  },
+  nearestN(x, y, maxD, n) {
+    return this.list
+      .filter(e => !e.dead && M.dist(x, y, e.x, e.y) < maxD)
+      .sort((a, b) => M.dist(x, y, a.x, a.y) - M.dist(x, y, b.x, b.y))
+      .slice(0, n);
+  },
+  tankiest(x, y, maxD) {
+    let best = null;
+    for (const e of this.list) {
+      if (e.dead || M.dist(x, y, e.x, e.y) > maxD) continue;
+      if (!best || e.hp > best.hp) best = e;
+    }
+    return best;
+  },
+  densest(x, y, maxD) {
+    const cands = this.list.filter(e => !e.dead && M.dist(x, y, e.x, e.y) < maxD);
+    let best = null, bn = 1;
+    for (const c of cands) {
+      let n = 0;
+      for (const o of cands) if (M.dist(c.x, c.y, o.x, o.y) < 160) n++;
+      if (n > bn) { bn = n; best = c; }
+    }
+    return best;
+  },
+  randomIn(x, y, r) {
+    const c = this.list.filter(e => !e.dead && M.dist(x, y, e.x, e.y) < r);
+    return c.length ? M.choice(c) : null;
+  },
+
+  // ---------- 伤害 ----------
+  hurt(e, dmg, opts) {
+    if (!e || e.dead) return false;
+    opts = opts || {};
+    let d = dmg;
+    if (!opts.noAmp) {
+      d *= Player.dmgMult;
+      if (e.resDownT > 0) d *= 1 + e.resDown;
+      if (e.shockT > 0) d *= 1 + e.shockStacks * e.shockAmp;
+      if (e.doomT > 0) d *= 1 + e.doomAmp;
+    }
+    if (opts.crit) d *= 2;
+    d = Math.max(1, Math.round(d));
+    e.hp -= d;
+    e.flash = 0.12;
+    FX.text(e.x + M.rand(-8, 8), e.y - e.r * 2 - 8, d, opts.crit ? '#ffd75e' : (opts.color || '#fff'), opts.crit ? 26 : 17);
+    if (e.hp <= 0) { this.kill(e); return true; }
+    return false;
+  },
+  areaDamage(x, y, r, dmg, opts) {
+    for (const e of this.list) {
+      if (e.dead || (opts && opts.exclude === e)) continue;
+      if (M.dist(x, y, e.x, e.y) < r + e.r) this.hurt(e, dmg, opts);
+    }
+  },
+
+  kill(e) {
+    if (e.dead) return;
+    e.dead = true;
+    this.kills++;
+    FX.imgFx('effects/hit_effect.png', e.x, e.y - 20, e.r * 2.4, { life: 0.25 });
+    Skills.onEnemyKilled(e);
+    if (e.type === 'goblin') {
+      this.drops.push({ kind: 'chest', x: e.x, y: e.y, v: 0, anim: 0 });
+      this.goblin = null;
+      UI.toast('宝藏哥布林已被处置，掉落稀有奖励');
+    } else {
+      const chunks = e.exp >= 8 ? 3 : e.exp >= 3 ? 2 : 1;
+      for (let i = 0; i < chunks; i++) {
+        this.drops.push({
+          kind: 'exp', x: e.x + M.rand(-16, 16), y: e.y + M.rand(-16, 16),
+          v: Math.ceil(e.exp / chunks), anim: M.rand(0, 5),
+        });
+      }
+    }
+  },
+
+  // ---------- 生成 ----------
+  spawnAtEdge(type) {
+    const cfg = CONFIG.enemies[type];
+    const ang = M.rand(0, Math.PI * 2);
+    const R = 840;
+    const w = this.wave;
+    this.list.push({
+      type, cfg,
+      x: Player.x + Math.cos(ang) * R, y: Player.y + Math.sin(ang) * R,
+      hp: Math.round(cfg.hp + cfg.hpWave * (w - 1)),
+      maxHp: Math.round(cfg.hp + cfg.hpWave * (w - 1)),
+      dmg: cfg.dmg + cfg.dmgWave * (w - 1),
+      speed: cfg.speed, r: cfg.r, exp: cfg.exp,
+      dead: false, flash: 0, anim: M.rand(0, 5), atkT: 0,
+      state: 'chase', stateT: 0, lockX: 0, lockY: 0, life: type === 'goblin' ? 14 : 0,
+      slowPct: 0, slowT: 0, stunT: 0, freezeT: 0, pendingShatter: 0, chillT: 0,
+      burnDps: 0, burnT: 0, burnSpread: 0, burnAcc: 0,
+      shockStacks: 0, shockT: 0, shockAmp: 0, resDown: 0, resDownT: 0, doomAmp: 0, doomT: 0,
+      faceX: 1,
+    });
+    if (type === 'goblin') {
+      this.goblin = this.list[this.list.length - 1];
+      UI.toast('宝藏哥布林现身！拦截它');
+    }
+  },
+
+  // ---------- 更新 ----------
+  update(dt) {
+    const W = CONFIG.waves;
+    const w = Math.floor(Game.time / W.waveTime) + 1;
+    if (w !== this.wave) {
+      this.wave = w;
+      UI.banner('第 ' + w + ' 波', w >= 5 ? '裂界压力持续攀升' : '');
+    }
+
+    this.spawnT -= dt;
+    if (this.spawnT <= 0 && this.list.filter(e => !e.dead).length < W.maxAlive) {
+      const interval = Math.max(W.minInterval, W.baseInterval - Game.time / 600);
+      this.spawnT = interval;
+      const batch = Math.min(12, W.batchBase + Math.floor(this.wave * W.batchPerWave));
+      for (let i = 0; i < batch; i++) {
+        const t = this.wave >= W.chargerFromWave && Math.random() < 0.3 ? 'charger' : 'grunt';
+        this.spawnAtEdge(t);
+      }
+    }
+    this.eliteT -= dt;
+    if (this.eliteT <= 0) {
+      this.eliteT = W.eliteInterval;
+      const n = Math.min(W.eliteCap, 1 + Math.floor((Game.time - W.eliteFirstTime) / 150));
+      for (let i = 0; i < n; i++) this.spawnAtEdge('elite');
+      UI.toast('精英单位进入裂界');
+    }
+    this.goblinT -= dt;
+    if (this.goblinT <= 0) {
+      this.goblinT = M.rand(W.goblinMin, W.goblinMax);
+      if (!this.goblin) this.spawnAtEdge('goblin');
+    }
+
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const e = this.list[i];
+      if (e.dead) { this.list.splice(i, 1); continue; }
+      this.updateOne(e, dt);
+    }
+    this.separate();
+    this.updateDrops(dt);
+  },
+
+  pickTarget(e) {
+    let best = null, bd = 150;
+    for (const u of Skills.summons) {
+      const d = M.dist(e.x, e.y, u.x, u.y);
+      if (d < bd) { bd = d; best = u; }
+    }
+    return best || Player;
+  },
+
+  updateOne(e, dt) {
+    e.anim += dt;
+    e.flash = Math.max(0, e.flash - dt);
+    e.atkT -= dt;
+    e.resDownT -= dt; e.shockT -= dt; e.doomT -= dt;
+    if (e.shockT <= 0) e.shockStacks = 0;
+    e.slowT -= dt;
+    if (e.slowT <= 0) e.slowPct = 0;
+
+    // 灼烧
+    if (e.burnT > 0) {
+      e.burnT -= dt;
+      e.burnAcc += dt;
+      if (e.burnAcc >= 0.5) {
+        e.burnAcc -= 0.5;
+        e.hp -= e.burnDps * 0.5;
+        FX.text(e.x, e.y - e.r * 2, Math.round(e.burnDps * 0.5), '#ff9a3c', 13);
+        if (e.hp <= 0) { this.kill(e); return; }
+      }
+    }
+    // 冰冻 / 定身
+    if (e.freezeT > 0) {
+      e.freezeT -= dt;
+      if (e.freezeT <= 0 && e.pendingShatter) {
+        const sh = e.pendingShatter; e.pendingShatter = 0;
+        FX.imgFx('effects/crit_effect.png', e.x, e.y - 20, 90, { life: 0.3 });
+        this.hurt(e, sh, { color: '#aee6ff' });
+      }
+      return;
+    }
+    if (e.stunT > 0) { e.stunT -= dt; return; }
+
+    const spd = e.speed * (1 - (e.slowPct || 0));
+    const target = this.pickTarget(e);
+    const isPlayer = target === Player;
+    const tr = isPlayer ? 26 : target.r;
+    const dd = M.dist(e.x, e.y, target.x, target.y);
+
+    if (e.type === 'goblin') {
+      e.life -= dt;
+      if (e.life <= 0 || dd > 1400) {
+        e.dead = true;
+        this.goblin = null;
+        UI.toast('宝藏哥布林逃离了裂界');
+        return;
+      }
+      const away = Math.atan2(e.y - Player.y, e.x - Player.x) + Math.sin(e.anim * 3) * 0.5;
+      e.faceX = Math.cos(away) > 0 ? 1 : -1;
+      e.x += Math.cos(away) * spd * dt;
+      e.y += Math.sin(away) * spd * dt;
+      return;
+    }
+
+    if (e.type === 'charger') {
+      e.stateT -= dt;
+      if (e.state === 'chase') {
+        this.moveToward(e, target.x, target.y, spd, dt);
+        if (isPlayer && dd < e.cfg.chargeRange) { e.state = 'tele'; e.stateT = 0.5; }
+      } else if (e.state === 'tele') {
+        if (e.stateT <= 0) {
+          e.state = 'charge'; e.stateT = 0.7;
+          const a = Math.atan2(target.y - e.y, target.x - e.x);
+          e.lockX = Math.cos(a); e.lockY = Math.sin(a);
+        }
+      } else if (e.state === 'charge') {
+        e.x += e.lockX * e.cfg.chargeSpeed * dt;
+        e.y += e.lockY * e.cfg.chargeSpeed * dt;
+        if (e.stateT <= 0) { e.state = 'rest'; e.stateT = 0.8; }
+      } else if (e.stateT <= 0) e.state = 'chase';
+    } else {
+      this.moveToward(e, target.x, target.y, spd, dt);
+    }
+
+    // 接触攻击
+    if (dd < e.r + tr + 4 && e.atkT <= 0 && e.cfg.dmg > 0) {
+      e.atkT = 0.9;
+      if (isPlayer) Player.hurt(e.dmg);
+      else Skills.hurtSummon(target, e.dmg);
+    }
+  },
+
+  moveToward(e, tx, ty, spd, dt) {
+    const dd = M.dist(e.x, e.y, tx, ty);
+    if (dd < 1) return;
+    e.faceX = tx > e.x ? 1 : -1;
+    e.x += (tx - e.x) / dd * spd * dt;
+    e.y += (ty - e.y) / dd * spd * dt;
+  },
+
+  separate() {
+    const L = this.list;
+    for (let i = 0; i < L.length; i++) {
+      const a = L[i];
+      if (a.dead) continue;
+      for (let j = i + 1; j < L.length; j++) {
+        const b = L[j];
+        if (b.dead) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const min = a.r + b.r - 6;
+        if (d > 0 && d < min) {
+          const push = (min - d) / d * 0.4;
+          a.x -= dx * push; a.y -= dy * push;
+          b.x += dx * push; b.y += dy * push;
+        }
+      }
+    }
+  },
+
+  updateDrops(dt) {
+    for (let i = this.drops.length - 1; i >= 0; i--) {
+      const d = this.drops[i];
+      d.anim += dt;
+      const dd = M.dist(d.x, d.y, Player.x, Player.y);
+      const magnetR = d.kind === 'chest' ? Player.pickup * 0.7 : Player.pickup;
+      if (dd < magnetR && dd > 1) {
+        const sp = d.kind === 'chest' ? 300 : 460;
+        d.x += (Player.x - d.x) / dd * sp * dt;
+        d.y += (Player.y - d.y) / dd * sp * dt;
+      }
+      if (dd < 28) {
+        if (d.kind === 'exp') {
+          Player.gainExp(d.v);
+          FX.text(Player.x, Player.y - 70, '+' + d.v + ' 经验', '#8fd3ff', 14);
+        } else {
+          Game.applyGoblinReward();
+        }
+        this.drops.splice(i, 1);
+      }
+    }
+  },
+
+  // ---------- 绘制 ----------
+  drawDrops(ctx) {
+    for (const d of this.drops) {
+      const x = Engine.SX(d.x), y = Engine.SY(d.y) + Math.sin(d.anim * 4) * 3;
+      Assets.drawSprite(ctx, 'drops/pickup_glow.png', x, y, d.kind === 'chest' ? 70 : 40, { alpha: 0.7 });
+      if (d.kind === 'exp') {
+        Assets.drawSprite(ctx, 'drops/experience_crystal.png', x, y, d.v >= 4 ? 34 : 24, {});
+      } else {
+        ctx.save();
+        ctx.translate(x, y - 14);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = '#ffd75e';
+        ctx.strokeStyle = '#8a6a1f';
+        ctx.lineWidth = 3;
+        ctx.fillRect(-13, -13, 26, 26);
+        ctx.strokeRect(-13, -13, 26, 26);
+        ctx.restore();
+        ctx.save();
+        ctx.fillStyle = '#5a430f';
+        ctx.font = 'bold 18px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('宝', x, y - 7);
+        ctx.restore();
+      }
+    }
+  },
+
+  draw(ctx) {
+    for (const e of this.list) {
+      if (e.dead) continue;
+      const x = Engine.SX(e.x), y = Engine.SY(e.y);
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 2, e.r * 0.9, e.r * 0.38, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      if (e.type === 'charger' && e.state === 'tele') {
+        ctx.save();
+        ctx.globalAlpha = 0.4 + Math.sin(e.anim * 20) * 0.2;
+        ctx.strokeStyle = '#ff5a3c';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y - e.r, e.r + 12, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+
+      const bob = Math.sin(e.anim * (e.type === 'elite' ? 4 : 8)) * 3;
+      const pulse = e.state === 'charge' ? 1.12 : 1;
+      const sprite = e.type === 'charger' && e.state === 'charge' ? 'enemies/charger_charge.png' : e.cfg.img;
+      Assets.drawSprite(ctx, sprite, x, y, e.cfg.drawH, {
+        bob, flash: e.flash, pulse, flip: e.faceX < 0,
+      });
+
+      if (e.freezeT > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = '#aee6ff';
+        ctx.beginPath(); ctx.arc(x, y - e.r, e.r + 6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // 状态图标
+      const icons = [];
+      if (e.burnT > 0) icons.push('status/burn.png');
+      if (e.shockT > 0) icons.push('status/shock.png');
+      if (e.slowT > 0 && e.slowPct > 0) icons.push('status/slow.png');
+      if (e.stunT > 0) icons.push('status/stun.png');
+      if (e.freezeT > 0) icons.push('status/freeze.png');
+      const topY = y - e.cfg.drawH;
+      icons.forEach((p, k) => {
+        const img = Assets.img(p);
+        if (img) ctx.drawImage(img, x - icons.length * 10 + k * 20, topY - 26, 18, 18);
+      });
+
+      if (e.type === 'elite' || e.type === 'goblin') {
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(x - 34, topY - 14, 68, 6);
+        ctx.fillStyle = e.type === 'elite' ? '#ff5a5a' : '#ffd75e';
+        ctx.fillRect(x - 34, topY - 14, 68 * Math.max(0, e.hp / e.maxHp), 6);
+      }
+    }
+  },
+};
