@@ -234,12 +234,33 @@ const ConfigDB = {
   _default() {
     return {
       version: 1,
+      // 经济系统（局外）
       economy: { expMult: 0.3, timeMult: 0.5, goldKillMult: 0.1, goldTimeMult: 0.05, expNeedBase: 20, expNeedLinear: 15, expNeedQuad: 0.8 },
-      drops: { eliteShardChance: 0.3, eliteHealChance: 0.25, goblinExpValue: 8, goblinShardMin: 2, goblinShardMax: 3 },
+      // 局内经验曲线（玩家升级）
+      playerExp: { base: 5, linear: 3, quad: 0.35 },
+      // 结算奖励公式
+      settlement: { expPerKill: 0.3, expPerSecond: 0.5, goldPerKill: 0.1, goldPerSecond: 0.05, shardPerElite: 1, shardPerGoblin: [2, 3] },
+      // 玩家基础属性
+      player: { hp: 120, speed: 230, pickup: 110, hurtCd: 0.5, drawH: 118 },
+      // 怪物定义（可增删改）
+      enemies: {
+        grunt: { name: '杂兵', hp: 20, hpWave: 5, hpWavePct: 0.08, dmg: 8, dmgWave: 0.5, speed: 85, exp: 1, r: 24, drawH: 80, img: 'enemies/grunt_move.png' },
+        charger: { name: '冲锋兵', hp: 15, hpWave: 3, hpWavePct: 0.06, dmg: 12, dmgWave: 0.6, speed: 70, chargeSpeed: 330, chargeRange: 380, exp: 2, r: 24, drawH: 84, img: 'enemies/charger_move.png' },
+        elite: { name: '精英', hp: 80, hpWave: 20, hpWavePct: 0.12, dmg: 20, dmgWave: 1.2, speed: 55, exp: 10, r: 40, drawH: 150, img: 'enemies/elite_move.png' },
+        goblin: { name: '宝藏哥布林', hp: 40, hpWave: 8, hpWavePct: 0.10, dmg: 0, dmgWave: 0, speed: 170, exp: 15, r: 22, drawH: 76, img: 'enemies/goblin_run.png' },
+      },
+      // 掉落系统
+      drops: { eliteShardChance: 0.3, eliteHealChance: 0.25, healValue: 30, goblinExpValue: 8, goblinShardMin: 2, goblinShardMax: 3, expDoubleChance: 0 },
+      // 波次曲线
       waves: { waveTime: 25, baseInterval: 1.5, minInterval: 0.45, batchBase: 2, batchPerWave: 0.8, maxAlive: 120, chargerFromWave: 2, eliteFirstTime: 70, eliteInterval: 30, eliteCap: 5, goblinFirst: 45, goblinMin: 40, goblinMax: 70, goblinSpawnR: 520 },
+      // 天赋解锁条件
       talents: { generalUnlock: { 2: 8, 3: 16, 4: 24 }, specialistUnlock: { 2: 5, 3: 10 } },
+      // 武器碎片需求
       weapons: { normalShards: 20, rareShards: 50 },
-      features: { elementalReaction: true, wheel: true, leaderboard: true },
+      // 技能系统
+      skillSystem: { maxLevel: 0, skillSlots: 8, archerCap: 3, evoMainLevel: 5, evoCatalystLevel: 3 },
+      // 功能开关
+      features: { elementalReaction: true, wheel: true, leaderboard: true, skipUpgrade: true },
       updated_at: new Date().toISOString(),
     };
   },

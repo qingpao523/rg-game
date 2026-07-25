@@ -21,7 +21,28 @@ const Skills = {
   hasSkill(id) { return this.owned.some(s => s.id === id); },
   getSkill(id) { return this.owned.find(s => s.id === id); },
   cfgOf(id) { return CONFIG.skills[id] || CONFIG.evolutions[id]; },
-  lvData(s) { const c = this.cfgOf(s.id); return c.levels ? c.levels[s.lv - 1] : c; },
+  lvData(s) {
+    const c = this.cfgOf(s.id);
+    if (!c.levels) return c;
+    const levels = c.levels;
+    if (s.lv <= levels.length) return levels[s.lv - 1];
+    // 无上限：从最后两级差值线性外推
+    const last = levels[levels.length - 1];
+    const prev = levels[levels.length - 2] || last;
+    const extra = s.lv - levels.length;
+    const out = {};
+    for (const k in last) {
+      if (typeof last[k] === 'number') {
+        const delta = last[k] - (prev[k] !== undefined ? prev[k] : last[k]);
+        out[k] = last[k] + delta * extra;
+        if (k === 'cd') out[k] = Math.max(0.3, out[k]); // CD 不低于 0.3s
+        if (k === 'count' || k === 'chains' || k === 'max' || k === 'pierce') out[k] = Math.max(1, Math.round(out[k]));
+      } else {
+        out[k] = last[k];
+      }
+    }
+    return out;
+  },
 
   enhanceMult() {
     const s = this.getSkill('taoist_skull_enhance');
@@ -756,7 +777,7 @@ const Skills = {
     const pool = [];
     for (const s of this.owned) {
       if (CONFIG.evolutions[s.id]) continue;
-      if (s.lv < 5) pool.push({ type: 'up', id: s.id, w: 2 });
+      if (!CONFIG.evolutions[s.id]) pool.push({ type: 'up', id: s.id, w: 2 });
     }
     if (this.owned.length < CONFIG.skillSlots) {
       for (const id in CONFIG.skills) {
@@ -837,7 +858,6 @@ const Skills = {
     } else if (ch.type === 'stat') {
       if (ch.stat === 'hp') { Player.maxHp += 25; Player.heal(25); }
       else if (ch.stat === 'speed') Player.speed *= 1.06;
-      else if (ch.stat === 'mana') Player.maxMana += 30;
       else if (ch.stat === 'dmg') Player.dmgMult += 0.08;
       else if (ch.stat === 'pickup') Player.pickup *= 1.3;
     }

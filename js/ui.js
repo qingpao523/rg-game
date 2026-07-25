@@ -218,9 +218,8 @@ const UI = {
     ctx.textAlign = 'center';
     ctx.fillText(Player.level, px, py + 45);
 
-    // 血条 / 蓝条
+    // 血条
     this.bar(ctx, 108, 74, 300, 20, Player.hp / Player.maxHp, '#c0392b', '#5a1512', Math.ceil(Player.hp) + ' / ' + Player.maxHp);
-    this.bar(ctx, 108, 100, 260, 12, Player.mana / Player.maxMana, '#2e6fd8', '#102a55', '');
 
     // 右上信息
     ctx.textAlign = 'right';
@@ -295,14 +294,11 @@ const UI = {
       ctx.textAlign = 'center';
       ctx.fillText(Math.ceil(Player.activeCd), ab.x, ab.y + 8);
       ctx.restore();
-    } else if (Player.mana < CONFIG.player.activeCost) {
-      ctx.fillStyle = 'rgba(20,40,90,0.55)';
-      ctx.beginPath(); ctx.arc(ab.x, ab.y, ab.r, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.fillStyle = Player.mana >= CONFIG.player.activeCost ? '#8fd3ff' : '#5a6a8a';
+    ctx.fillStyle = '#8fd3ff';
     ctx.font = 'bold 14px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(CONFIG.player.activeCost + ' 法力', ab.x, ab.y + 76);
+    ctx.fillText('主动技', ab.x, ab.y + 76);
     ctx.fillStyle = 'rgba(200,200,210,0.55)';
     ctx.font = '12px "PingFang SC", sans-serif';
     ctx.fillText(acfg.name + ' Lv.' + Player.activeLv(), ab.x, ab.y - 66);
@@ -512,6 +508,21 @@ const UI = {
     ctx.fillStyle = 'rgba(160,160,175,0.6)';
     ctx.fillText('技能栏 ' + Skills.owned.length + ' / ' + CONFIG.skillSlots, W / 2, y0 + chh + 44);
     ctx.restore();
+
+    // Bug2：跳过按钮（不选技能直接继续）
+    const skipW = 160, skipH = 48, skipX = (W - skipW) / 2, skipY = y0 + chh + 60;
+    ctx.save();
+    ctx.fillStyle = 'rgba(30,30,42,0.85)';
+    ctx.strokeStyle = 'rgba(160,160,175,0.4)';
+    ctx.lineWidth = 1;
+    this.rr(ctx, skipX, skipY, skipW, skipH, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(200,200,210,0.7)';
+    ctx.font = '15px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('跳过本次选择', skipX + skipW / 2, skipY + 30);
+    ctx.restore();
+    this.skipBtn = { x: skipX, y: skipY, w: skipW, h: skipH };
   },
 
   // ---------- 暂停 ----------
@@ -700,6 +711,13 @@ const UI = {
         if (this.inRect(x, y, c)) { Game.start(c.classId); return true; }
       }
     } else if (st === 'upgrade') {
+      // Bug2：跳过按钮
+      if (this.skipBtn && this.inRect(x, y, this.skipBtn)) {
+        Player.pendingLevels--;
+        if (Player.pendingLevels > 0) Game.choices = Skills.genChoices();
+        else Game.state = 'battle';
+        return true;
+      }
       for (const c of this.upgradeCards) {
         if (this.inRect(x, y, c)) { Game.pickChoice(c.choice); return true; }
       }

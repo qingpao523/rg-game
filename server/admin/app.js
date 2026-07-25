@@ -59,7 +59,7 @@ const AdminApp = {
     this.currentPage = page;
     document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
     document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === 'page-' + page));
-    const loaders = { dashboard: () => this.loadDashboard(), players: () => this.loadPlayers(), runs: () => this.loadRuns(), skills: () => this.loadSkills(), config: () => this.loadConfig(), leaderboard: () => this.loadLeaderboard(), announcements: () => this.loadAnnouncements() };
+    const loaders = { dashboard: () => this.loadDashboard(), players: () => this.loadPlayers(), runs: () => this.loadRuns(), skills: () => this.loadSkills(), config: () => this.loadConfig(), leaderboard: () => this.loadLeaderboard(), announcements: () => this.loadAnnouncements(), enemies: () => this.loadEnemies() };
     if (loaders[page]) loaders[page]();
   },
 
@@ -243,29 +243,125 @@ const AdminApp = {
     this.loadSkills();
   },
 
-  // ---------- 游戏配置 ----------
+  // ---------- 怪物管理 ----------
+  editingEnemyId: null,
+  async loadEnemies() {
+    try {
+      const { enemies } = await this.api('GET', '/api/admin/enemies');
+      document.getElementById('enemies-body').innerHTML = Object.entries(enemies || {}).map(([id, e]) => `<tr>
+        <td><code>${id}</code></td><td>${e.name}</td><td>${e.hp}</td>
+        <td>+${e.hpWave || 0}</td><td>+${((e.hpWavePct || 0) * 100).toFixed(0)}%</td>
+        <td>${e.dmg}</td><td>${e.speed}</td><td>${e.exp}</td>
+        <td>
+          <button class="btn-sm" onclick="AdminApp.showEnemyEditor('${id}')">编辑</button>
+          <button class="btn-sm btn-danger" onclick="AdminApp.deleteEnemy('${id}')">删除</button>
+        </td>
+      </tr>`).join('');
+    } catch (e) { console.error(e); }
+  },
+
+  showEnemyEditor(id) {
+    this.editingEnemyId = id;
+    document.getElementById('enemy-editor-title').textContent = id ? '编辑怪物：' + id : '新增怪物';
+    document.getElementById('en-id').value = id || '';
+    document.getElementById('en-id').disabled = !!id;
+    if (id) {
+      this.api('GET', '/api/admin/enemies').then(({ enemies }) => {
+        const e = enemies[id];
+        if (!e) return;
+        document.getElementById('en-name').value = e.name || '';
+        document.getElementById('en-hp').value = e.hp || 20;
+        document.getElementById('en-hpWave').value = e.hpWave || 0;
+        document.getElementById('en-hpWavePct').value = e.hpWavePct || 0;
+        document.getElementById('en-dmg').value = e.dmg || 0;
+        document.getElementById('en-dmgWave').value = e.dmgWave || 0;
+        document.getElementById('en-speed').value = e.speed || 85;
+        document.getElementById('en-exp').value = e.exp || 1;
+        document.getElementById('en-r').value = e.r || 24;
+        document.getElementById('en-drawH').value = e.drawH || 80;
+        document.getElementById('en-img').value = e.img || '';
+      });
+    } else {
+      ['en-name','en-img'].forEach(f => document.getElementById(f).value = '');
+      document.getElementById('en-hp').value = 20; document.getElementById('en-hpWave').value = 5;
+      document.getElementById('en-hpWavePct').value = 0.08; document.getElementById('en-dmg').value = 8;
+      document.getElementById('en-dmgWave').value = 0.5; document.getElementById('en-speed').value = 85;
+      document.getElementById('en-exp').value = 1; document.getElementById('en-r').value = 24;
+      document.getElementById('en-drawH').value = 80;
+    }
+    document.getElementById('enemy-editor-modal').style.display = 'flex';
+  },
+
+  async saveEnemy() {
+    const id = document.getElementById('en-id').value.trim();
+    if (!id) { alert('怪物 ID 不能为空'); return; }
+    const data = {
+      name: document.getElementById('en-name').value,
+      hp: parseFloat(document.getElementById('en-hp').value) || 20,
+      hpWave: parseFloat(document.getElementById('en-hpWave').value) || 0,
+      hpWavePct: parseFloat(document.getElementById('en-hpWavePct').value) || 0,
+      dmg: parseFloat(document.getElementById('en-dmg').value) || 0,
+      dmgWave: parseFloat(document.getElementById('en-dmgWave').value) || 0,
+      speed: parseFloat(document.getElementById('en-speed').value) || 85,
+      exp: parseFloat(document.getElementById('en-exp').value) || 1,
+      r: parseFloat(document.getElementById('en-r').value) || 24,
+      drawH: parseFloat(document.getElementById('en-drawH').value) || 80,
+      img: document.getElementById('en-img').value || undefined,
+    };
+    try {
+      if (this.editingEnemyId) await this.api('PUT', `/api/admin/enemies/${encodeURIComponent(this.editingEnemyId)}`, data);
+      else await this.api('POST', '/api/admin/enemies', { id, ...data });
+      this.closeModal('enemy-editor-modal');
+      this.loadEnemies();
+    } catch (e) { alert('保存失败：' + e.message); }
+  },
+
+  async deleteEnemy(id) {
+    if (!confirm(`确认删除怪物 ${id}？`)) return;
+    await this.api('DELETE', `/api/admin/enemies/${encodeURIComponent(id)}`);
+    this.loadEnemies();
+  },
+
+  // ---------- 游戏配置（全数值） ----------
   async loadConfig() {
     try {
       const { config: c } = await this.api('GET', '/api/admin/config');
       document.getElementById('config-version').textContent = '当前版本：v' + (c.version || 1);
       const editor = document.getElementById('config-editor');
+      const p = c.player || {};
+      const pe = c.playerExp || {};
+      const st = c.settlement || {};
+      const ss = c.skillSystem || {};
+      const dr = c.drops || {};
       editor.innerHTML = `
-        <div class="config-section"><h4>💰 经济系统</h4><div class="config-row">
-          <div class="config-field"><label>经验击杀系数</label><input type="number" step="0.1" id="cfg-expMult" value="${c.economy?.expMult ?? 0.3}"></div>
-          <div class="config-field"><label>经验时间系数</label><input type="number" step="0.1" id="cfg-timeMult" value="${c.economy?.timeMult ?? 0.5}"></div>
-          <div class="config-field"><label>金币击杀系数</label><input type="number" step="0.01" id="cfg-goldKillMult" value="${c.economy?.goldKillMult ?? 0.1}"></div>
-          <div class="config-field"><label>金币时间系数</label><input type="number" step="0.01" id="cfg-goldTimeMult" value="${c.economy?.goldTimeMult ?? 0.05}"></div>
+        <div class="config-section"><h4>🧑 玩家基础属性</h4><div class="config-row">
+          <div class="config-field"><label>生命值</label><input type="number" id="cfg-p-hp" value="${p.hp ?? 120}"></div>
+          <div class="config-field"><label>移速</label><input type="number" id="cfg-p-speed" value="${p.speed ?? 230}"></div>
+          <div class="config-field"><label>拾取范围</label><input type="number" id="cfg-p-pickup" value="${p.pickup ?? 110}"></div>
+          <div class="config-field"><label>受击CD(s)</label><input type="number" step="0.1" id="cfg-p-hurtCd" value="${p.hurtCd ?? 0.5}"></div>
+        </div></div>
+        <div class="config-section"><h4>📈 局内经验曲线（升级）</h4><div class="config-row">
+          <div class="config-field"><label>基础经验</label><input type="number" id="cfg-pe-base" value="${pe.base ?? 5}"></div>
+          <div class="config-field"><label>线性系数</label><input type="number" step="0.5" id="cfg-pe-linear" value="${pe.linear ?? 3}"></div>
+          <div class="config-field"><label>二次系数</label><input type="number" step="0.05" id="cfg-pe-quad" value="${pe.quad ?? 0.35}"></div>
+        </div><p style="font-size:12px;color:rgba(200,200,210,0.4);margin-top:4px">公式：expNeed(lv) = base + lv × linear + lv² × quad</p></div>
+        <div class="config-section"><h4>💰 局外经济（结算奖励）</h4><div class="config-row">
+          <div class="config-field"><label>经验/击杀</label><input type="number" step="0.1" id="cfg-expMult" value="${c.economy?.expMult ?? 0.3}"></div>
+          <div class="config-field"><label>经验/秒</label><input type="number" step="0.1" id="cfg-timeMult" value="${c.economy?.timeMult ?? 0.5}"></div>
+          <div class="config-field"><label>金币/击杀</label><input type="number" step="0.01" id="cfg-goldKillMult" value="${c.economy?.goldKillMult ?? 0.1}"></div>
+          <div class="config-field"><label>金币/秒</label><input type="number" step="0.01" id="cfg-goldTimeMult" value="${c.economy?.goldTimeMult ?? 0.05}"></div>
         </div><div class="config-row">
           <div class="config-field"><label>升级基础经验</label><input type="number" id="cfg-expNeedBase" value="${c.economy?.expNeedBase ?? 20}"></div>
           <div class="config-field"><label>升级线性系数</label><input type="number" id="cfg-expNeedLinear" value="${c.economy?.expNeedLinear ?? 15}"></div>
           <div class="config-field"><label>升级二次系数</label><input type="number" step="0.1" id="cfg-expNeedQuad" value="${c.economy?.expNeedQuad ?? 0.8}"></div>
         </div></div>
         <div class="config-section"><h4>🎁 掉落系统</h4><div class="config-row">
-          <div class="config-field"><label>精英碎片概率</label><input type="number" step="0.05" id="cfg-eliteShardChance" value="${c.drops?.eliteShardChance ?? 0.3}"></div>
-          <div class="config-field"><label>精英血瓶概率</label><input type="number" step="0.05" id="cfg-eliteHealChance" value="${c.drops?.eliteHealChance ?? 0.25}"></div>
-          <div class="config-field"><label>哥布林经验值</label><input type="number" id="cfg-goblinExpValue" value="${c.drops?.goblinExpValue ?? 8}"></div>
-          <div class="config-field"><label>哥布林碎片最少</label><input type="number" id="cfg-goblinShardMin" value="${c.drops?.goblinShardMin ?? 2}"></div>
-          <div class="config-field"><label>哥布林碎片最多</label><input type="number" id="cfg-goblinShardMax" value="${c.drops?.goblinShardMax ?? 3}"></div>
+          <div class="config-field"><label>精英碎片概率</label><input type="number" step="0.05" id="cfg-eliteShardChance" value="${dr.eliteShardChance ?? 0.3}"></div>
+          <div class="config-field"><label>精英血瓶概率</label><input type="number" step="0.05" id="cfg-eliteHealChance" value="${dr.eliteHealChance ?? 0.25}"></div>
+          <div class="config-field"><label>血瓶回复量</label><input type="number" id="cfg-healValue" value="${dr.healValue ?? 30}"></div>
+          <div class="config-field"><label>哥布林经验值</label><input type="number" id="cfg-goblinExpValue" value="${dr.goblinExpValue ?? 8}"></div>
+          <div class="config-field"><label>哥布林碎片最少</label><input type="number" id="cfg-goblinShardMin" value="${dr.goblinShardMin ?? 2}"></div>
+          <div class="config-field"><label>哥布林碎片最多</label><input type="number" id="cfg-goblinShardMax" value="${dr.goblinShardMax ?? 3}"></div>
         </div></div>
         <div class="config-section"><h4>🌊 波次曲线</h4><div class="config-row">
           <div class="config-field"><label>每波时长(s)</label><input type="number" id="cfg-waveTime" value="${c.waves?.waveTime ?? 25}"></div>
@@ -278,10 +374,18 @@ const AdminApp = {
           <div class="config-field"><label>精英上限</label><input type="number" id="cfg-eliteCap" value="${c.waves?.eliteCap ?? 5}"></div>
           <div class="config-field"><label>哥布林首现(s)</label><input type="number" id="cfg-goblinFirst" value="${c.waves?.goblinFirst ?? 45}"></div>
         </div></div>
+        <div class="config-section"><h4>⚔️ 技能系统</h4><div class="config-row">
+          <div class="config-field"><label>技能栏数量</label><input type="number" id="cfg-skillSlots" value="${ss.skillSlots ?? 8}"></div>
+          <div class="config-field"><label>射手上限</label><input type="number" id="cfg-archerCap" value="${ss.archerCap ?? 3}"></div>
+          <div class="config-field"><label>进化主技能等级</label><input type="number" id="cfg-evoMainLevel" value="${ss.evoMainLevel ?? 5}"></div>
+          <div class="config-field"><label>进化催化等级</label><input type="number" id="cfg-evoCatalystLevel" value="${ss.evoCatalystLevel ?? 3}"></div>
+          <div class="config-field"><label>等级上限(0=无限)</label><input type="number" id="cfg-maxLevel" value="${ss.maxLevel ?? 0}"></div>
+        </div></div>
         <div class="config-section"><h4>🔧 功能开关</h4><div class="config-row">
           <div class="config-field"><label><input type="checkbox" id="cfg-featReaction" ${c.features?.elementalReaction ? 'checked' : ''}> 元素反应</label></div>
           <div class="config-field"><label><input type="checkbox" id="cfg-featWheel" ${c.features?.wheel ? 'checked' : ''}> 战利品分配</label></div>
           <div class="config-field"><label><input type="checkbox" id="cfg-featLeaderboard" ${c.features?.leaderboard ? 'checked' : ''}> 排行榜</label></div>
+          <div class="config-field"><label><input type="checkbox" id="cfg-featSkip" ${c.features?.skipUpgrade !== false ? 'checked' : ''}> 升级可跳过</label></div>
         </div></div>`;
     } catch (e) { console.error(e); }
   },
@@ -289,10 +393,13 @@ const AdminApp = {
   async saveConfig() {
     const v = id => parseFloat(document.getElementById(id)?.value) || 0;
     const data = {
+      player: { hp: v('cfg-p-hp'), speed: v('cfg-p-speed'), pickup: v('cfg-p-pickup'), hurtCd: v('cfg-p-hurtCd') },
+      playerExp: { base: v('cfg-pe-base'), linear: v('cfg-pe-linear'), quad: v('cfg-pe-quad') },
       economy: { expMult: v('cfg-expMult'), timeMult: v('cfg-timeMult'), goldKillMult: v('cfg-goldKillMult'), goldTimeMult: v('cfg-goldTimeMult'), expNeedBase: v('cfg-expNeedBase'), expNeedLinear: v('cfg-expNeedLinear'), expNeedQuad: v('cfg-expNeedQuad') },
-      drops: { eliteShardChance: v('cfg-eliteShardChance'), eliteHealChance: v('cfg-eliteHealChance'), goblinExpValue: v('cfg-goblinExpValue'), goblinShardMin: v('cfg-goblinShardMin'), goblinShardMax: v('cfg-goblinShardMax') },
+      drops: { eliteShardChance: v('cfg-eliteShardChance'), eliteHealChance: v('cfg-eliteHealChance'), healValue: v('cfg-healValue'), goblinExpValue: v('cfg-goblinExpValue'), goblinShardMin: v('cfg-goblinShardMin'), goblinShardMax: v('cfg-goblinShardMax') },
       waves: { waveTime: v('cfg-waveTime'), baseInterval: v('cfg-baseInterval'), minInterval: v('cfg-minInterval'), maxAlive: v('cfg-maxAlive'), eliteFirstTime: v('cfg-eliteFirstTime'), eliteInterval: v('cfg-eliteInterval'), eliteCap: v('cfg-eliteCap'), goblinFirst: v('cfg-goblinFirst') },
-      features: { elementalReaction: document.getElementById('cfg-featReaction')?.checked, wheel: document.getElementById('cfg-featWheel')?.checked, leaderboard: document.getElementById('cfg-featLeaderboard')?.checked },
+      skillSystem: { skillSlots: v('cfg-skillSlots'), archerCap: v('cfg-archerCap'), evoMainLevel: v('cfg-evoMainLevel'), evoCatalystLevel: v('cfg-evoCatalystLevel'), maxLevel: v('cfg-maxLevel') },
+      features: { elementalReaction: document.getElementById('cfg-featReaction')?.checked, wheel: document.getElementById('cfg-featWheel')?.checked, leaderboard: document.getElementById('cfg-featLeaderboard')?.checked, skipUpgrade: document.getElementById('cfg-featSkip')?.checked },
     };
     try {
       const { config } = await this.api('PUT', '/api/admin/config', data);

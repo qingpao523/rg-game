@@ -29,6 +29,7 @@
     <a class="nav-item" data-page="config" onclick="AdminApp.nav('config')">⚙️ 游戏配置</a>
     <a class="nav-item" data-page="leaderboard" onclick="AdminApp.nav('leaderboard')">🏆 排行榜</a>
     <a class="nav-item" data-page="announcements" onclick="AdminApp.nav('announcements')">📢 公告管理</a>
+    <a class="nav-item" data-page="enemies" onclick="AdminApp.nav('enemies')">👾 怪物管理</a>
     <div class="sidebar-bottom">
       <button onclick="AdminApp.logout()" class="logout-btn">退出登录</button>
     </div>
@@ -184,6 +185,43 @@
           <div class="toolbar" style="margin-top:12px">
             <button class="btn-primary" onclick="AdminApp.saveAnnouncement()">保存</button>
             <button onclick="AdminApp.closeModal('ann-editor-modal')">取消</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 怪物管理 -->
+    <section id="page-enemies" class="page">
+      <h2>怪物管理</h2>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="AdminApp.showEnemyEditor(null)">+ 新增怪物</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>名称</th><th>HP</th><th>HP/波</th><th>HP%/波</th><th>伤害</th><th>速度</th><th>经验</th><th>操作</th></tr></thead>
+        <tbody id="enemies-body"></tbody>
+      </table>
+      <!-- 怪物编辑器弹窗 -->
+      <div id="enemy-editor-modal" class="modal" style="display:none">
+        <div class="modal-content modal-lg">
+          <span class="modal-close" onclick="AdminApp.closeModal('enemy-editor-modal')">&times;</span>
+          <h3 id="enemy-editor-title">怪物编辑器</h3>
+          <div class="detail-grid">
+            <div class="detail-item"><label>怪物 ID <input type="text" id="en-id" placeholder="如 skeleton_mage"></label></div>
+            <div class="detail-item"><label>名称 <input type="text" id="en-name" placeholder="如 骷髅法师"></label></div>
+            <div class="detail-item"><label>基础 HP <input type="number" id="en-hp" value="20"></label></div>
+            <div class="detail-item"><label>HP 固定成长/波 <input type="number" step="1" id="en-hpWave" value="5"></label></div>
+            <div class="detail-item"><label>HP 百分比成长/波 <input type="number" step="0.01" id="en-hpWavePct" value="0.08"></label></div>
+            <div class="detail-item"><label>基础伤害 <input type="number" id="en-dmg" value="8"></label></div>
+            <div class="detail-item"><label>伤害成长/波 <input type="number" step="0.1" id="en-dmgWave" value="0.5"></label></div>
+            <div class="detail-item"><label>移动速度 <input type="number" id="en-speed" value="85"></label></div>
+            <div class="detail-item"><label>经验值 <input type="number" id="en-exp" value="1"></label></div>
+            <div class="detail-item"><label>碰撞半径 <input type="number" id="en-r" value="24"></label></div>
+            <div class="detail-item"><label>渲染高度 <input type="number" id="en-drawH" value="80"></label></div>
+            <div class="detail-item"><label>图片路径 <input type="text" id="en-img" placeholder="enemies/grunt_move.png"></label></div>
+          </div>
+          <div class="toolbar" style="margin-top:16px">
+            <button class="btn-primary" onclick="AdminApp.saveEnemy()">保存怪物</button>
+            <button onclick="AdminApp.closeModal('enemy-editor-modal')">取消</button>
           </div>
         </div>
       </div>
