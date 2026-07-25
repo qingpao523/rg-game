@@ -203,17 +203,6 @@ const CONFIG = {
         { dmg: 28, cd: 1.4, count: 3, slow: 0.40, pierce: 4 },
       ],
     },
-    thunder_storm: {
-      name: '雷暴云', icon: 'icons/thunder_cloud.png', flow: '雷霆流', behavior: 'thunder_storm',
-      desc: '召唤雷云跟随，持续电击随机敌人', tags: ['雷霆', '光环'],
-      levels: [
-        { dmg: 8, interval: 1.2, radius: 220, dur: 10 },
-        { dmg: 11, interval: 1.1, radius: 240, dur: 11 },
-        { dmg: 14, interval: 1.0, radius: 260, dur: 12 },
-        { dmg: 17, interval: 0.9, radius: 280, dur: 13 },
-        { dmg: 22, interval: 0.8, radius: 300, dur: 14 },
-      ],
-    },
     stone_golem: {
       name: '石魔像', icon: 'icons/holy_guardian.png', flow: '召唤流', behavior: 'stone_golem',
       desc: '召唤高生命石魔像，嘲讽周围敌人', tags: ['召唤', '防御'],

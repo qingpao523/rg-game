@@ -354,30 +354,6 @@ const Skills = {
     });
   },
 
-  // ---------- P3 新增行为：雷暴云（跟随雷云，周期电击） ----------
-  bh_thunder_storm(s, c, d, dt) {
-    if (this.stormCloud) {
-      this.stormCloud.t += dt;
-      this.stormCloud.zap -= dt;
-      if (this.stormCloud.zap <= 0) {
-        const e = Enemies.randomIn(Player.x, Player.y, d.radius);
-        if (e) {
-          this.stormCloud.zap = d.interval;
-          FX.bolt(Player.x, Player.y - 160, e.x, e.y - 20, '#9fd8ff', 0.15);
-          Enemies.hurt(e, d.dmg, { color: '#9fd8ff' });
-          this.addShock(e, 1, 3);
-        }
-      }
-      if (this.stormCloud.t >= d.dur) this.stormCloud = null;
-      return;
-    }
-    s.t -= dt;
-    if (s.t > 0) return;
-    s.t = d.cd * Player.cdMult;
-    this.stormCloud = { t: 0, dur: d.dur, zap: 0 };
-    FX.ring(Player.x, Player.y - 140, 10, 60, '#9fd8ff', 0.4, 3);
-  },
-
   // ---------- P3 新增行为：石魔像（高生命召唤物，嘲讽） ----------
   bh_stone_golem(s, c, d, dt) {
     s.t -= dt;
