@@ -120,12 +120,13 @@ const Game = {
   },
 
   applyBloom(ctx) {
-    // P2 Bloom：将当前画面以 lighter + blur 叠加一次，制造辉光
+    const W = CONFIG.canvas.w, H = CONFIG.canvas.h;
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.18;
-    ctx.filter = 'blur(6px)';
-    ctx.drawImage(this.canvas, 0, 0, CONFIG.canvas.w, CONFIG.canvas.h);
+    const g = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.72);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
     ctx.restore();
   },
 

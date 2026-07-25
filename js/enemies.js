@@ -84,8 +84,10 @@ const Enemies = {
     e.flash = 0.12;
     FX.text(e.x + M.rand(-8, 8), e.y - e.r * 2 - 8, d, opts.crit ? '#ffd75e' : (opts.color || '#fff'), opts.crit ? 26 : 17);
     if (typeof SFX !== 'undefined') SFX.play(opts.crit ? 'crit' : 'hit');
-    FX.glow(e.x, e.y - e.r, 30, opts.crit ? '#ffd75e' : '#ffffff', 0.1, opts.crit ? 0.4 : 0.3);
-    if (typeof Game !== 'undefined') Game.hitstopFrames = Math.max(Game.hitstopFrames, opts.crit ? 6 : 3);
+    if (opts.crit) {
+      FX.glow(e.x, e.y - e.r, 30, '#ffd75e', 0.1, 0.4);
+      if (typeof Game !== 'undefined') Game.hitstopFrames = Math.max(Game.hitstopFrames, 4);
+    }
     if (e.hp <= 0) { this.kill(e); return true; }
     return false;
   },
