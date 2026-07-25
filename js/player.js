@@ -48,9 +48,9 @@ const Player = {
   get armor() { return this.cfg.passive.armor || 0; },
   get cdMult() {
     const cd = this.talentBonus && this.talentBonus.cd ? 1 - this.talentBonus.cd : 1;
-    return this.cfg.passive.cdMult * cd;
+    return (this.cfg.passive.cdMult || 1) * cd;
   },
-  get summonMult() { return this.cfg.passive.summonMult * (this.talentBonus && this.talentBonus.summonDmg ? 1 + this.talentBonus.summonDmg : 1); },
+  get summonMult() { return (this.cfg.passive.summonMult || 1) * (this.talentBonus && this.talentBonus.summonDmg ? 1 + this.talentBonus.summonDmg : 1); },
 
   activeLv() { return CONFIG.activeLevel(this.level); },
   activeData() {
