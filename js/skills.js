@@ -517,7 +517,7 @@ const Skills = {
       this.explode(p.x, p.y, p.aoe, p.dmg, p.burn);
       p.aoe = 0; p.dmg = 0;
     } else {
-      Enemies.hurt(e, p.dmg, { color: '#fff' });
+      Enemies.hurt(e, p.dmg, { color: '#fff', summon: p.summon });
     }
     if (Player.buffs.fire.t > 0) Enemies.hurt(e, Player.buffs.fire.dmg, { noAmp: true, color: '#ff9a3c' });
     if (Player.buffs.thunder.t > 0) this.addShock(e, 1, Player.buffs.thunder.lv);
@@ -662,7 +662,7 @@ const Skills = {
         }
         if (e && dd < e.r + 34 && u.atkCd <= 0) {
           u.atkCd = 0.8; u.pulse = 1;
-          Enemies.hurt(e, u.dmg * u.buffMult, { color: '#b8c7d9' });
+          Enemies.hurt(e, u.dmg * u.buffMult, { color: '#b8c7d9', summon: true });
         }
       } else { // archer
         if (e) {
@@ -678,7 +678,7 @@ const Skills = {
             this.spawnProj({
               img: 'projectiles/skeleton_arrow.png', x: u.x, y: u.y - 30, speed: 600,
               vx: Math.cos(ang) * 600, vy: Math.sin(ang) * 600,
-              dmg: u.dmg * u.buffMult, r: 10, life: 1.5, h: 34,
+              dmg: u.dmg * u.buffMult, r: 10, life: 1.5, h: 34, summon: true,
             });
           }
         } else {
@@ -716,7 +716,7 @@ const Skills = {
   },
 
   // ---------- 击杀钩子（由 Enemies.kill 调用） ----------
-  onEnemyKilled(e) {
+  onEnemyKilled(e, source) {
     if (e.burnT > 0) {
       const ig = this.getSkill('taoist_ignite_explode');
       if (ig) {
@@ -737,7 +737,9 @@ const Skills = {
     if (rd && e.type !== 'goblin') {
       const d = this.lvData(rd);
       const tb = Player.talentBonus;
-      const chance = d.chance + (tb && tb.raiseChance ? tb.raiseChance : 0);
+      let chance = d.chance + (tb && tb.raiseChance ? tb.raiseChance : 0);
+      // 召唤流滚雪球：召唤物击杀时复活概率翻倍
+      if (source === 'summon') chance = Math.min(1, chance * 2);
       const risen = this.summons.filter(u => u.kind === 'risen').length;
       if (risen < d.max && Math.random() < chance) {
         const em = this.enhanceMult() * Player.summonMult;

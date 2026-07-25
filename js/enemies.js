@@ -124,7 +124,7 @@ const Enemies = {
     if (opts.crit) {
       FX.glow(e.x, e.y - e.r, 30, '#ffd75e', 0.1, 0.4);
     }
-    if (e.hp <= 0) { this.kill(e); return true; }
+    if (e.hp <= 0) { this.kill(e, opts && opts.summon ? 'summon' : null); return true; }
     return false;
   },
   areaDamage(x, y, r, dmg, opts) {
@@ -134,12 +134,12 @@ const Enemies = {
     }
   },
 
-  kill(e) {
+  kill(e, source) {
     if (e.dead) return;
     e.dead = true;
     this.kills++;
     FX.imgFx('effects/hit_effect.png', e.x, e.y - 20, e.r * 2.4, { life: 0.25 });
-    Skills.onEnemyKilled(e);
+    Skills.onEnemyKilled(e, source);
     // P3：hitstop 仅在精英击杀时触发（大事件才有顿帧感）
     if (e.type === 'elite' && typeof Game !== 'undefined') {
       Game.hitstopFrames = Math.max(Game.hitstopFrames, 6);
