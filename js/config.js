@@ -140,11 +140,11 @@ const CONFIG = {
     },
     taoist_raise_dead: {
       name: '亡者复苏', icon: 'icons/taoist_raise_dead.png', flow: '亡者流', behavior: 'passive',
-      desc: '击杀的敌人概率复苏为骷髅',
+      desc: '击杀的敌人概率复苏为骷髅，召唤物击杀概率翻倍',
       levels: [
-        { chance: 0.25, hp: 15, max: 4 }, { chance: 0.30, hp: 20, max: 4 },
-        { chance: 0.35, hp: 25, max: 5 }, { chance: 0.40, hp: 30, max: 5 },
-        { chance: 0.45, hp: 35, max: 6 },
+        { chance: 0.40, hp: 15, max: 6 }, { chance: 0.45, hp: 20, max: 7 },
+        { chance: 0.50, hp: 25, max: 8 }, { chance: 0.55, hp: 30, max: 9 },
+        { chance: 0.60, hp: 35, max: 10 },
       ],
     },
     taoist_skull_enhance: {
