@@ -37,5 +37,27 @@
   },
   "created_at": "2026-07-25T14:55:26.921Z",
   "updated_at": "2026-07-25T14:55:27.133Z"
+ },
+ "web_test123": {
+  "id": "web_test123",
+  "platform": "web",
+  "platform_uid": "web_test123",
+  "name": "",
+  "level": 5,
+  "exp": 0,
+  "gold": 888,
+  "shards": 42,
+  "generalTalentPoints": 0,
+  "specialistTalentPoints": 0,
+  "talents": {},
+  "weapons": {},
+  "achievements": [],
+  "stats": {
+   "runs": 10,
+   "kills": 2847
+  },
+  "banned": false,
+  "created_at": "2026-07-25T18:29:43.698Z",
+  "updated_at": "2026-07-25T18:29:43.698Z"
  }
 }

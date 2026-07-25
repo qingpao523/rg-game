@@ -133,8 +133,9 @@ const Storage = {
       if (typeof SFX !== 'undefined') SFX.play('levelup');
     }
     this.checkAchievements(report);
-    // P2：异步上报结算数据到服务器
+    // P2：异步上报结算数据 + 同步完整存档到服务器
     this._reportToServer(report);
+    this.syncToServer();
     return r.data;
   },
 
@@ -142,12 +143,22 @@ const Storage = {
   SERVER_URL: 'http://localhost:3000',
   _token: null,
 
+  // 获取/生成稳定的玩家 ID（存本地，跨会话不变）
+  getPlayerId() {
+    const d = this.Load();
+    if (!d.playerId) {
+      d.playerId = 'web_' + (crypto.randomUUID ? crypto.randomUUID().slice(0, 12) : Math.random().toString(36).slice(2, 14));
+      this.Save(d);
+    }
+    return d.playerId;
+  },
+
   async loginToServer() {
     try {
       const res = await fetch(this.SERVER_URL + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: 'web' }),
+        body: JSON.stringify({ platform: 'web', playerId: this.getPlayerId() }),
       });
       const j = await res.json();
       this._token = j.token;
@@ -164,6 +175,7 @@ const Storage = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this._token },
         body: JSON.stringify({
+          playerId: this.getPlayerId(),
           level: d.level, exp: d.exp, gold: d.gold, shards: d.shards,
           generalTalentPoints: d.generalTalentPoints, specialistTalentPoints: d.specialistTalentPoints,
           talents: d.talents, weapons: d.weapons, achievements: d.achievements, stats: d.stats,
@@ -181,12 +193,13 @@ const Storage = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this._token },
         body: JSON.stringify({
+          playerId: this.getPlayerId(),
           class_id: Game.classId, wave: report.wave, time_seconds: Math.round(report.time),
           kills: report.kills, evolutions: report.evoCount,
           skills: (report.build || []).map(b => b.name),
           flow: report.flow || '',
-          exp_earned: Math.round(report.kills + report.time),
-          gold_earned: Math.round(report.kills * 0.5 + report.time * 0.2),
+          exp_earned: Math.round(report.kills * 0.3 + report.time * 0.5),
+          gold_earned: Math.round(report.kills * 0.1 + report.time * 0.05),
           shards_earned: report.shards || 0,
         }),
       }).catch(() => {}); // 静默失败，不影响本地
