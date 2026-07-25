@@ -144,10 +144,11 @@ const Skills = {
     const e = Enemies.tankiest(Player.x, Player.y, 620);
     if (!e) { s.t = 0.25; return; }
     s.t = d.cd * Player.cdMult;
-    const crit = Math.random() < d.crit;
+    const tb = Player.talentBonus;
+    const crit = Math.random() < (d.crit + (tb && tb.boltCrit ? tb.boltCrit : 0) + (tb && tb.crit ? tb.crit : 0));
     FX.bolt(e.x, e.y - 200, e.x, e.y, '#cfeaff', 0.22);
     FX.imgFx(crit ? 'effects/crit_effect.png' : 'effects/hit_effect.png', e.x, e.y - 30, 90, { life: 0.3 });
-    Enemies.hurt(e, d.dmg, { crit, color: '#cfeaff' });
+    Enemies.hurt(e, Math.round(d.dmg * (tb && tb.thunderDmg ? 1 + tb.thunderDmg : 1)), { crit, color: '#cfeaff' });
   },
 
   // ---------- 行为：雷云 ----------
@@ -217,8 +218,10 @@ const Skills = {
   bh_summon_melee(s, c, d, dt) {
     s.t -= dt;
     if (s.t > 0) return;
+    const tb = Player.talentBonus;
+    const cap = d.max + (tb && tb.summonCap ? tb.summonCap : 0);
     const n = this.summons.filter(u => u.kind === 'melee').length;
-    if (n >= d.max) { s.t = 0.5; return; }
+    if (n >= cap) { s.t = 0.5; return; }
     s.t = d.cd * Player.cdMult;
     this.spawnSkeleton('melee', d.dmg, d.hp, 0);
   },
@@ -231,12 +234,14 @@ const Skills = {
     this.spawnSkeleton('archer', d.dmg, d.hp, 0, d.range);
   },
   spawnSkeleton(kind, dmg, hp, tag, range) {
+    const tb = Player.talentBonus;
     const em = this.enhanceMult() * Player.summonMult;
+    const hpMult = tb && tb.summonHp ? 1 + tb.summonHp : 1;
     const a = M.rand(0, Math.PI * 2);
     this.summons.push({
       kind, tag: tag || 0,
       x: Player.x + Math.cos(a) * 60, y: Player.y + Math.sin(a) * 60,
-      hp: Math.round(hp * em), maxHp: Math.round(hp * em),
+      hp: Math.round(hp * em * hpMult), maxHp: Math.round(hp * em * hpMult),
       dmg: dmg * em, range: range || 0,
       r: 20, atkCd: 0, flash: 0, anim: M.rand(0, 5), pulse: 0,
       buffMult: 1, buffT: 0, faceX: 1, dead: false,
@@ -429,9 +434,10 @@ const Skills = {
   },
 
   addShock(e, stacks, lv) {
+    const tb = Player.talentBonus;
     e.shockStacks = Math.min(3, (e.shockStacks || 0) + stacks);
     e.shockAmp = CONFIG.status.shockAmp[M.clamp(lv, 1, 5) - 1];
-    e.shockT = CONFIG.status.shockDur;
+    e.shockT = CONFIG.status.shockDur + (tb && tb.shockDur ? tb.shockDur : 0);
   },
   applyBurn(e, dps, dur, spread) {
     e.burnDps = Math.max(e.burnDps || 0, dps);
@@ -495,17 +501,21 @@ const Skills = {
           }
         }
       } else if (z.kind === 'frozen') {
+        const tb = Player.talentBonus;
+        const slowBonus = tb && tb.slowPct ? tb.slowPct : 0;
+        const freezeDurBonus = tb && tb.freezeDur ? tb.freezeDur : 0;
+        const shatterMult = tb && tb.shatterDmg ? 1 + tb.shatterDmg : 1;
         for (const e of Enemies.list) {
           if (e.dead) continue;
           const inside = M.dist(z.x, z.y, e.x, e.y) < z.r;
           if (inside) {
             Enemies.hurt(e, z.dps * 0.5, { color: '#aee6ff' });
-            e.slowPct = Math.max(e.slowPct || 0, z.slow); e.slowT = 0.6;
+            e.slowPct = Math.max(e.slowPct || 0, z.slow + slowBonus); e.slowT = 0.6;
             e.chillT = (e.chillT || 0) + 0.5;
             if (e.chillT >= 2 && !(e.freezeT > 0)) {
-              e.freezeT = CONFIG.status.freezeDur[z.lv - 1];
+              e.freezeT = CONFIG.status.freezeDur[z.lv - 1] + freezeDurBonus;
               e.chillT = 0;
-              e.pendingShatter = z.shatter;
+              e.pendingShatter = Math.round(z.shatter * shatterMult);
             }
           } else e.chillT = 0;
         }
@@ -613,8 +623,10 @@ const Skills = {
     const rd = this.getSkill('taoist_raise_dead');
     if (rd && e.type !== 'goblin') {
       const d = this.lvData(rd);
+      const tb = Player.talentBonus;
+      const chance = d.chance + (tb && tb.raiseChance ? tb.raiseChance : 0);
       const risen = this.summons.filter(u => u.kind === 'risen').length;
-      if (risen < d.max && Math.random() < d.chance) {
+      if (risen < d.max && Math.random() < chance) {
         const em = this.enhanceMult() * Player.summonMult;
         this.summons.push({
           kind: 'risen', tag: 0, x: e.x, y: e.y,

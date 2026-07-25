@@ -159,6 +159,14 @@ const Enemies = {
           v: Math.ceil(e.exp / chunks), anim: M.rand(0, 5),
         });
       }
+      // P1 天赋：luck 精英概率掉碎片
+      if (e.type === 'elite') {
+        const tb = Player.talentBonus;
+        const shardChance = 0.3 + (tb && tb.luck ? tb.luck : 0);
+        if (Math.random() < shardChance) {
+          this.drops.push({ kind: 'shard', x: e.x + M.rand(-20, 20), y: e.y + M.rand(-20, 20), v: 1, anim: M.rand(0, 5) });
+        }
+      }
     }
   },
 

@@ -1,6 +1,6 @@
 // 主循环、场景切换、全局状态
 const Game = {
-  state: 'loading', // loading / menu / battle / upgrade / pause / dying / death
+  state: 'loading', // loading / menu / battle / upgrade / pause / dying / death / wheel
   time: 0,
   hitstopFrames: 0, // P0 命中顿帧：>0 时跳过 update 仅 render
   choices: [],
@@ -49,6 +49,10 @@ const Game = {
     this.time = 0;
     this.report = null;
     this.state = 'battle';
+    if (typeof Craft !== 'undefined') Craft.applyWeaponEffects(classId);
+    // P1 天赋：startLevel 开局额外升级
+    const tb = Player.talentBonus;
+    if (tb && tb.startLevel) { Player.pendingLevels += tb.startLevel; Game.tryOpenUpgrade(); }
     UI.banner('进入裂界', Player.cfg.name + ' · ' + Player.cfg.title);
   },
 
@@ -65,7 +69,8 @@ const Game = {
   },
 
   update(dt) {
-    if (this.state === 'menu') { this.menuT += dt; UI.update(dt); return; }
+    if (this.state === 'menu') { this.menuT += dt; UI.update(dt); if (typeof Wheel !== 'undefined') Wheel.update(dt); return; }
+    if (this.state === 'wheel') { if (typeof Wheel !== 'undefined') Wheel.update(dt); UI.update(dt); return; }
     if (this.state === 'battle') {
       this.time += dt;
       Player.update(dt);
@@ -108,6 +113,13 @@ const Game = {
     if (this.state === 'menu') {
       UI.drawMenu(ctx, this.menuT);
       if (typeof TalentsUI !== 'undefined' && TalentsUI.open) TalentsUI.draw(ctx);
+      if (typeof Craft !== 'undefined' && Craft.open) Craft.draw(ctx);
+      return;
+    }
+    if (this.state === 'wheel') {
+      UI.drawDeath(ctx);
+      if (typeof Wheel !== 'undefined') Wheel.draw(ctx);
+      UI.drawToasts(ctx);
       return;
     }
     this.drawWorld(ctx);
