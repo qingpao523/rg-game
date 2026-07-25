@@ -248,7 +248,7 @@ const TalentsUI = {
         ctx.restore();
         this.classBtns.push({ x: bx, y: by, w: bw2, h: bh2, cid });
       });
-      treeTopY = 274;
+      treeTopY = 298;
     }
 
     this.nodes = [];
