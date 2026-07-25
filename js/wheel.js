@@ -112,7 +112,7 @@ const Wheel = {
     ctx.fillRect(0, 0, W, H);
 
     // 标题
-    UI.goldText(ctx, '命 运 转 盘', cx, cy - R - 60, 36);
+    UI.goldText(ctx, '战 利 品 分 配', cx, cy - R - 60, 36);
     ctx.font = '15px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(200,200,210,0.7)';
@@ -181,7 +181,7 @@ const Wheel = {
         const can = this.canSpin();
         ctx.save();
         ctx.globalAlpha = can ? 1 : 0.4;
-        UI.drawButton(ctx, bx, by, bw, bh, '转 动', can);
+        UI.drawButton(ctx, bx, by, bw, bh, '分 配', can);
         ctx.restore();
         this._spinBtn = { x: bx, y: by, w: bw, h: bh };
       } else {

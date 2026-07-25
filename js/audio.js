@@ -39,6 +39,11 @@ const SFX = {
   evolve() { this.tone('sawtooth', 300, 0.35, 0.14, 900); this.tone('square', 600, 0.30, 0.10, 1200); },
   death() { this.tone('sawtooth', 220, 0.6, 0.16, 50); },
   pickup() { this.tone('square', 660, 0.06, 0.07, 990); },
+  // P3 新增音效
+  elite() { this.tone('sawtooth', 120, 0.4, 0.18, 60); this.tone('square', 180, 0.3, 0.12, 90); },
+  goblin() { this.tone('square', 880, 0.08, 0.10, 1320); this.tone('square', 1100, 0.06, 0.08, 1650); },
+  heal() { this.tone('sine', 520, 0.15, 0.08, 780); this.tone('sine', 780, 0.12, 0.06, 1040); },
+  loot() { this.tone('square', 660, 0.10, 0.10, 990); this.tone('square', 880, 0.12, 0.08, 1320); this.tone('square', 1100, 0.14, 0.06, 1650); },
 
   play(type) {
     if (typeof this[type] === 'function') this[type]();

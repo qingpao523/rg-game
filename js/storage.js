@@ -7,7 +7,8 @@ const Storage = {
 
   defaultData() {
     return {
-      level: 1, exp: 0, gold: 0, talentPoints: 0,
+      level: 1, exp: 0, gold: 0, shards: 0,
+      generalTalentPoints: 0, specialistTalentPoints: 0,
       talents: {}, unlockedWeapons: [], achievements: [],
       stats: { runs: 0, kills: 0, bestTime: 0, bestKills: 0, totalExp: 0, evos: 0 },
     };
@@ -20,6 +21,12 @@ const Storage = {
       const raw = localStorage.getItem(this.KEY);
       d = raw ? Object.assign(this.defaultData(), JSON.parse(raw) || {}) : this.defaultData();
     } catch (e) { d = this.defaultData(); }
+    // P3 迁移：旧版 talentPoints → 新版双池
+    if (d.talentPoints !== undefined && d.generalTalentPoints === undefined) {
+      d.generalTalentPoints = d.talentPoints;
+      d.specialistTalentPoints = d.talentPoints;
+      delete d.talentPoints;
+    }
     this._cache = d;
     return d;
   },
@@ -52,9 +59,10 @@ const Storage = {
     try { localStorage.removeItem(this.KEY); } catch (e) {}
   },
 
-  expNeed(level) { return level * 100; },
+  // 经济重平衡：满级50需~30天（每日6局×8分钟）
+  expNeed(level) { return Math.floor(20 + level * 15 + level * level * 0.8); },
 
-  // 结算累加局外经验，升级 +1 天赋点
+  // 结算累加局外经验，升级 +1 通用点 +1 专精点
   addExp(amount) {
     const d = this.Load();
     d.exp += amount;
@@ -63,7 +71,8 @@ const Storage = {
     while (d.exp >= this.expNeed(d.level)) {
       d.exp -= this.expNeed(d.level);
       d.level++;
-      d.talentPoints = (d.talentPoints || 0) + 1;
+      d.generalTalentPoints = (d.generalTalentPoints || 0) + 1;
+      d.specialistTalentPoints = (d.specialistTalentPoints || 0) + 1;
       ups++;
     }
     this.Save(d);
@@ -105,7 +114,7 @@ const Storage = {
     return d;
   },
 
-  // 结算入口：累加经验 + 统计 + 成就
+  // 结算入口：累加经验 + 统计 + 成就（经济重平衡版）
   recordRun(report) {
     const d = this.Load();
     d.stats.runs++;
@@ -113,12 +122,14 @@ const Storage = {
     d.stats.bestTime = Math.max(d.stats.bestTime, report.time);
     d.stats.bestKills = Math.max(d.stats.bestKills, report.kills);
     d.stats.evos = (d.stats.evos || 0) + report.evoCount;
-    d.gold = (d.gold || 0) + Math.round(report.kills * 0.5 + report.time * 0.2);
+    // 经济重平衡：让每局奖励"刚好差一点"
+    d.gold = (d.gold || 0) + Math.round(report.kills * 0.1 + report.time * 0.05);
     d.shards = (d.shards || 0) + (report.shards || 0);
     this.Save(d);
-    const r = this.addExp(Math.round(report.kills + report.time));
+    const expGain = Math.round(report.kills * 0.3 + report.time * 0.5);
+    const r = this.addExp(expGain);
     if (r.ups > 0 && typeof UI !== 'undefined') {
-      UI.toast('局外等级提升！天赋点 +1');
+      UI.toast('局外等级提升！通用+专精天赋点各 +1');
       if (typeof SFX !== 'undefined') SFX.play('levelup');
     }
     this.checkAchievements(report);
@@ -154,8 +165,8 @@ const Storage = {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this._token },
         body: JSON.stringify({
           level: d.level, exp: d.exp, gold: d.gold, shards: d.shards,
-          talentPoints: d.talentPoints, talents: d.talents,
-          weapons: d.weapons, achievements: d.achievements, stats: d.stats,
+          generalTalentPoints: d.generalTalentPoints, specialistTalentPoints: d.specialistTalentPoints,
+          talents: d.talents, weapons: d.weapons, achievements: d.achievements, stats: d.stats,
         }),
       });
       const j = await res.json();

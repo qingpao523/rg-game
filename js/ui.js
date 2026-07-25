@@ -158,7 +158,7 @@ const UI = {
     ctx.font = '13px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(200,200,210,0.8)';
-    ctx.fillText('局外 Lv.' + save.level + ' · 天赋点 ' + (save.talentPoints || 0) + ' · 成就 ' + (save.achievements ? save.achievements.length : 0) + '/12', W / 2, tby + 52);
+    ctx.fillText('局外 Lv.' + save.level + ' · 通用点 ' + (save.generalTalentPoints || 0) + ' · 专精点 ' + (save.specialistTalentPoints || 0) + ' · 成就 ' + (save.achievements ? save.achievements.length : 0) + '/12', W / 2, tby + 52);
     ctx.restore();
     this.talentBtn = { x: tbx, y: tby, w: tbw, h: tbh };
 
@@ -627,7 +627,7 @@ const UI = {
     ctx.fillStyle = '#f0d9a0';
     ctx.font = 'bold 18px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('命运转盘', b3.x + b3.w / 2, b3.y + 35);
+    ctx.fillText('战利品分配', b3.x + b3.w / 2, b3.y + 35);
     ctx.restore();
     this.deathButtons.push(b1, b2, b3);
   },
