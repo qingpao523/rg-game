@@ -23,13 +23,16 @@ const Skills = {
   cfgOf(id) { return CONFIG.skills[id] || CONFIG.evolutions[id]; },
   lvData(s) {
     const c = this.cfgOf(s.id);
+    return this.lvlData(c, s.lv);
+  },
+  // 支持无限等级：超出 levels 数组时从最后两级差值线性外推
+  lvlData(c, lv) {
     if (!c.levels) return c;
     const levels = c.levels;
-    if (s.lv <= levels.length) return levels[s.lv - 1];
-    // 无上限：从最后两级差值线性外推
+    if (lv <= levels.length) return levels[lv - 1];
     const last = levels[levels.length - 1];
     const prev = levels[levels.length - 2] || last;
-    const extra = s.lv - levels.length;
+    const extra = lv - levels.length;
     const out = {};
     for (const k in last) {
       if (typeof last[k] === 'number') {
@@ -813,7 +816,7 @@ const Skills = {
       return { icon: c.icon, name: c.name, sub: '新条目 · Lv.1', lines: [c.desc, this.statLine(c, d)], flow: c.flow };
     }
     const s = this.getSkill(ch.id);
-    const d = c.levels[s.lv]; // 升级后的数值
+    const d = this.lvlData(c, s.lv + 1); // 升级后的数值（支持无限等级外推，避免越界 undefined）
     return { icon: c.icon, name: c.name, sub: `Lv.${s.lv} → Lv.${s.lv + 1}`, lines: [c.desc, this.statLine(c, d)], flow: c.flow };
   },
   statLine(c, d) {
