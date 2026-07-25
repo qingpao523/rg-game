@@ -21,9 +21,50 @@ const Game = {
     Engine.init(this.canvas, this);
     Assets.loadAll(
       (n, total) => { this.loadProgress = n / total; },
-      () => { this.state = 'menu'; }
+      () => { this.state = 'menu'; this.fetchRemoteConfig(); }
     );
     requestAnimationFrame((ts) => this.loop(ts));
+  },
+
+  // S5：启动时拉取远程配置覆盖本地 CONFIG（静默失败，不影响单机）
+  async fetchRemoteConfig() {
+    const SERVER = (typeof Storage !== 'undefined' && Storage.SERVER_URL) || 'http://localhost:3000';
+    try {
+      const res = await fetch(SERVER + '/api/config/game');
+      const { config, skills } = await res.json();
+      if (config) {
+        // 覆盖经济参数
+        if (config.economy) {
+          CONFIG._remoteEconomy = config.economy;
+        }
+        // 覆盖波次参数
+        if (config.waves) Object.assign(CONFIG.waves, config.waves);
+        // 覆盖功能开关
+        if (config.features) CONFIG.features = config.features;
+        // 覆盖掉落参数
+        if (config.drops) CONFIG._remoteDrops = config.drops;
+        console.log('[config] 远程配置已加载 v' + config.version);
+      }
+      // 远程技能定义覆盖本地（管理后台编辑的技能）
+      if (skills && Object.keys(skills).length > 0) {
+        for (const [id, s] of Object.entries(skills)) {
+          if (CONFIG.skills[id]) {
+            Object.assign(CONFIG.skills[id], { name: s.name, desc: s.desc, flow: s.flow, tags: s.tags, levels: s.levels });
+            if (s.icon) CONFIG.skills[id].icon = s.icon;
+            if (s.projectile) CONFIG.skills[id].projectile = s.projectile;
+          }
+        }
+        console.log('[config] 远程技能定义已合并');
+      }
+      // 拉取公告
+      const annRes = await fetch(SERVER + '/api/announcement');
+      const { announcements } = await annRes.json();
+      if (announcements && announcements.length > 0) {
+        this.announcement = announcements[0]; // 显示最新一条
+      }
+    } catch (e) {
+      console.warn('[config] 远程配置拉取失败，使用本地默认值:', e.message);
+    }
   },
 
   resize() {

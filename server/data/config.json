@@ -1,0 +1,56 @@
+{
+ "version": 1,
+ "economy": {
+  "expMult": 0.3,
+  "timeMult": 0.5,
+  "goldKillMult": 0.1,
+  "goldTimeMult": 0.05,
+  "expNeedBase": 20,
+  "expNeedLinear": 15,
+  "expNeedQuad": 0.8
+ },
+ "drops": {
+  "eliteShardChance": 0.3,
+  "eliteHealChance": 0.25,
+  "goblinExpValue": 8,
+  "goblinShardMin": 2,
+  "goblinShardMax": 3
+ },
+ "waves": {
+  "waveTime": 25,
+  "baseInterval": 1.5,
+  "minInterval": 0.45,
+  "batchBase": 2,
+  "batchPerWave": 0.8,
+  "maxAlive": 120,
+  "chargerFromWave": 2,
+  "eliteFirstTime": 70,
+  "eliteInterval": 30,
+  "eliteCap": 5,
+  "goblinFirst": 45,
+  "goblinMin": 40,
+  "goblinMax": 70,
+  "goblinSpawnR": 520
+ },
+ "talents": {
+  "generalUnlock": {
+   "2": 8,
+   "3": 16,
+   "4": 24
+  },
+  "specialistUnlock": {
+   "2": 5,
+   "3": 10
+  }
+ },
+ "weapons": {
+  "normalShards": 20,
+  "rareShards": 50
+ },
+ "features": {
+  "elementalReaction": true,
+  "wheel": true,
+  "leaderboard": true
+ },
+ "updated_at": "2026-07-25T16:22:05.443Z"
+}
