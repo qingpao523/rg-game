@@ -1,6 +1,6 @@
 // 主循环、场景切换、全局状态
 const Game = {
-  state: 'loading', // loading / menu / battle / upgrade / pause / dying / death
+  state: 'loading', // loading / menu / battle / upgrade / pause / dying / death / wheel
   time: 0,
   hitstopFrames: 0, // P0 命中顿帧：>0 时跳过 update 仅 render
   choices: [],
@@ -34,6 +34,7 @@ const Game = {
     this.canvas.width = Math.round(CONFIG.canvas.w * dpr);
     this.canvas.height = Math.round(CONFIG.canvas.h * dpr);
     this.dpr = dpr;
+    this._bloomGrad = null; // P0：渐变缓存，resize 时重建
   },
 
   start(classId) {
@@ -48,6 +49,10 @@ const Game = {
     this.time = 0;
     this.report = null;
     this.state = 'battle';
+    if (typeof Craft !== 'undefined') Craft.applyWeaponEffects(classId);
+    // P1 天赋：startLevel 开局额外升级
+    const tb = Player.talentBonus;
+    if (tb && tb.startLevel) { Player.pendingLevels += tb.startLevel; Game.tryOpenUpgrade(); }
     UI.banner('进入裂界', Player.cfg.name + ' · ' + Player.cfg.title);
   },
 
@@ -64,7 +69,8 @@ const Game = {
   },
 
   update(dt) {
-    if (this.state === 'menu') { this.menuT += dt; UI.update(dt); return; }
+    if (this.state === 'menu') { this.menuT += dt; UI.update(dt); if (typeof Wheel !== 'undefined') Wheel.update(dt); return; }
+    if (this.state === 'wheel') { if (typeof Wheel !== 'undefined') Wheel.update(dt); UI.update(dt); return; }
     if (this.state === 'battle') {
       this.time += dt;
       Player.update(dt);
@@ -107,6 +113,13 @@ const Game = {
     if (this.state === 'menu') {
       UI.drawMenu(ctx, this.menuT);
       if (typeof TalentsUI !== 'undefined' && TalentsUI.open) TalentsUI.draw(ctx);
+      if (typeof Craft !== 'undefined' && Craft.open) Craft.draw(ctx);
+      return;
+    }
+    if (this.state === 'wheel') {
+      UI.drawDeath(ctx);
+      if (typeof Wheel !== 'undefined') Wheel.draw(ctx);
+      UI.drawToasts(ctx);
       return;
     }
     this.drawWorld(ctx);
@@ -121,11 +134,15 @@ const Game = {
 
   applyBloom(ctx) {
     const W = CONFIG.canvas.w, H = CONFIG.canvas.h;
+    // P0：渐变对象缓存，避免每帧 createRadialGradient
+    if (!this._bloomGrad) {
+      const g = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.72);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,0.45)');
+      this._bloomGrad = g;
+    }
     ctx.save();
-    const g = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.72);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = g;
+    ctx.fillStyle = this._bloomGrad;
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   },
@@ -204,7 +221,7 @@ const Game = {
     this.state = 'dying';
     this.dyingT = 1.4;
     if (typeof SFX !== 'undefined') SFX.play('death');
-    Engine.addShake(12);
+    Engine.addShake(12, true); // P0：大震动通道
   },
 
   applyGoblinReward() {

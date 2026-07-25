@@ -337,6 +337,7 @@ const CONFIG = {
     eliteCap: 5,
     goblinFirst: 45,
     goblinMin: 40, goblinMax: 70,
+    goblinSpawnR: 520,     // 哥布林出生半径（普通敌人为 840）
   },
 
   // 状态效果数值表（Lv1/Lv3/Lv5 档位插值到 5 级）

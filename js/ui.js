@@ -10,10 +10,10 @@ const UI = {
   pauseBtn: { x: 672, y: 160, r: 26 },
   activeBtn: { x: 614, y: 1064, r: 56 },
 
-  reset() { this.toasts.length = 0; this.bannerState = null; this.redPulseT = 0; },
+  reset() { this.toasts.length = 0; this.bannerState = null; this.redPulseT = 0; this._redPulseDur = 0; },
   toast(msg) { this.toasts.push({ msg, t: 0, life: 3 }); if (this.toasts.length > 4) this.toasts.shift(); },
   banner(text, sub) { this.bannerState = { text, sub: sub || '', t: 0, life: 2.2 }; },
-  redPulse(dur) { this.redPulseT = dur; }, // 精英出场：屏幕红边脉冲
+  redPulse(dur) { this.redPulseT = dur; this._redPulseDur = dur; }, // 精英出场：屏幕红边脉冲
 
   update(dt) {
     for (let i = this.toasts.length - 1; i >= 0; i--) {
@@ -161,6 +161,27 @@ const UI = {
     ctx.fillText('局外 Lv.' + save.level + ' · 天赋点 ' + (save.talentPoints || 0) + ' · 成就 ' + (save.achievements ? save.achievements.length : 0) + '/12', W / 2, tby + 52);
     ctx.restore();
     this.talentBtn = { x: tbx, y: tby, w: tbw, h: tbh };
+
+    // P1：武器库 + 背包按钮（左右并排）
+    const bw2 = 150, bh2 = 48, gap2 = 20;
+    const bx2 = (W - bw2 * 2 - gap2) / 2, by2 = tby + tbh + 12;
+    const defs2 = [['武器库', 'craft'], ['背包', 'backpack']];
+    this.menuExtraBtns = [];
+    defs2.forEach((d, i) => {
+      const x = bx2 + i * (bw2 + gap2);
+      ctx.save();
+      ctx.fillStyle = 'rgba(20,18,10,0.9)';
+      ctx.strokeStyle = 'rgba(201,168,106,0.7)';
+      ctx.lineWidth = 1.5;
+      this.rr(ctx, x, by2, bw2, bh2, 10);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#c9a86a';
+      ctx.font = 'bold 17px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d[0], x + bw2 / 2, by2 + 30);
+      ctx.restore();
+      this.menuExtraBtns.push({ x, y: by2, w: bw2, h: bh2, id: d[1] });
+    });
   },
 
   // ---------- HUD ----------
@@ -169,9 +190,13 @@ const UI = {
     // 经验条
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, 0, W, 10);
-    const eg = ctx.createLinearGradient(0, 0, W, 0);
-    eg.addColorStop(0, '#8a6a3a'); eg.addColorStop(1, '#f0d9a0');
-    ctx.fillStyle = eg;
+    // P0：渐变缓存，避免每帧 createLinearGradient
+    if (!this._expGrad) {
+      const eg = ctx.createLinearGradient(0, 0, W, 0);
+      eg.addColorStop(0, '#8a6a3a'); eg.addColorStop(1, '#f0d9a0');
+      this._expGrad = eg;
+    }
+    ctx.fillStyle = this._expGrad;
     ctx.fillRect(0, 0, W * Math.min(1, Player.exp / Player.expNeed), 10);
 
     // 头像
@@ -303,23 +328,32 @@ const UI = {
     this.drawGoblinArrow(ctx);
     this.drawBanner(ctx);
 
-    // 精英出场：屏幕红边脉冲
+    // 精英出场：屏幕红边脉冲（P1 修复：衰减时长与 redPulse(dur) 挂钩；P0：渐变缓存，透明度用 globalAlpha 控制）
     if (this.redPulseT > 0) {
-      const k = this.redPulseT / 1.5;
+      const k = this.redPulseT / (this._redPulseDur || 1.5);
       const a = (0.28 + Math.sin(Game.time * 18) * 0.12) * Math.min(1, k * 2.5);
-      const g = ctx.createRadialGradient(360, 640, 320, 360, 640, 740);
-      g.addColorStop(0, 'rgba(200,0,0,0)');
-      g.addColorStop(1, `rgba(220,30,30,${Math.max(0, a)})`);
-      ctx.fillStyle = g;
+      if (!this._redPulseGrad) {
+        const g = ctx.createRadialGradient(360, 640, 320, 360, 640, 740);
+        g.addColorStop(0, 'rgba(200,0,0,0)');
+        g.addColorStop(1, 'rgba(220,30,30,1)');
+        this._redPulseGrad = g;
+      }
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = this._redPulseGrad;
       ctx.fillRect(0, 0, W, CONFIG.canvas.h);
+      ctx.restore();
     }
 
-    // 低血量警告
+    // 低血量警告（P0：渐变缓存）
     if (Player.hp / Player.maxHp < 0.3) {
-      const g = ctx.createRadialGradient(360, 640, 380, 360, 640, 760);
-      g.addColorStop(0, 'rgba(160,0,0,0)');
-      g.addColorStop(1, 'rgba(160,0,0,0.35)');
-      ctx.fillStyle = g;
+      if (!this._lowHpGrad) {
+        const g = ctx.createRadialGradient(360, 640, 380, 360, 640, 760);
+        g.addColorStop(0, 'rgba(160,0,0,0)');
+        g.addColorStop(1, 'rgba(160,0,0,0.35)');
+        this._lowHpGrad = g;
+      }
+      ctx.fillStyle = this._lowHpGrad;
       ctx.fillRect(0, 0, W, CONFIG.canvas.h);
     }
   },
@@ -395,7 +429,7 @@ const UI = {
     ctx.fillStyle = 'rgba(4,4,10,0.78)';
     ctx.fillRect(0, 0, W, H);
 
-    this.goldText(ctx, '魔契之书正在重写条目', W / 2, 300, 34);
+    this.goldText(ctx, '魔契之书 · Lv.' + Player.level + ' 条目重写', W / 2, 300, 34);
     ctx.save();
     ctx.font = '16px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
@@ -580,9 +614,22 @@ const UI = {
     this.deathButtons = [];
     const b1 = { x: 100, y: 1000, w: 250, h: 64, id: 'restart' };
     const b2 = { x: 380, y: 1000, w: 240, h: 64, id: 'menu' };
+    const b3 = { x: 100, y: 920, w: 250, h: 56, id: 'wheel' };
     this.drawButton(ctx, b1.x, b1.y, b1.w, b1.h, '再次进入裂界', true);
     this.drawButton(ctx, b2.x, b2.y, b2.w, b2.h, '返回档案室', false);
-    this.deathButtons.push(b1, b2);
+    // P1：转盘按钮
+    ctx.save();
+    ctx.fillStyle = 'rgba(201,168,106,0.25)';
+    ctx.strokeStyle = '#f0d9a0';
+    ctx.lineWidth = 2;
+    this.rr(ctx, b3.x, b3.y, b3.w, b3.h, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f0d9a0';
+    ctx.font = 'bold 18px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('命运转盘', b3.x + b3.w / 2, b3.y + 35);
+    ctx.restore();
+    this.deathButtons.push(b1, b2, b3);
   },
 
   drawButton(ctx, x, y, w, h, text, primary) {
@@ -633,8 +680,22 @@ const UI = {
     if (typeof TalentsUI !== 'undefined' && TalentsUI.open) {
       return TalentsUI.tap(x, y);
     }
+    if (typeof Craft !== 'undefined' && Craft.open) {
+      return Craft.tap(x, y);
+    }
+    if (typeof Wheel !== 'undefined' && Wheel.open) {
+      return Wheel.tap(x, y);
+    }
     if (st === 'menu') {
       if (this.talentBtn && this.inRect(x, y, this.talentBtn)) { TalentsUI.toggle(); return true; }
+      if (this.menuExtraBtns) {
+        for (const b of this.menuExtraBtns) {
+          if (this.inRect(x, y, b)) {
+            if (typeof Craft !== 'undefined') Craft.toggle(b.id === 'craft' ? 'weapons' : 'backpack');
+            return true;
+          }
+        }
+      }
       for (const c of this.menuCards) {
         if (this.inRect(x, y, c)) { Game.start(c.classId); return true; }
       }
@@ -648,7 +709,10 @@ const UI = {
       }
     } else if (st === 'death') {
       for (const b of this.deathButtons) {
-        if (this.inRect(x, y, b)) { Game.pauseAction(b.id); return true; }
+        if (this.inRect(x, y, b)) {
+          if (b.id === 'wheel') { Game.state = 'wheel'; if (typeof Wheel !== 'undefined') Wheel.show(); return true; }
+          Game.pauseAction(b.id); return true;
+        }
       }
     } else if (st === 'battle') {
       const pb = this.pauseBtn;

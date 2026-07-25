@@ -144,10 +144,11 @@ const Skills = {
     const e = Enemies.tankiest(Player.x, Player.y, 620);
     if (!e) { s.t = 0.25; return; }
     s.t = d.cd * Player.cdMult;
-    const crit = Math.random() < d.crit;
+    const tb = Player.talentBonus;
+    const crit = Math.random() < (d.crit + (tb && tb.boltCrit ? tb.boltCrit : 0) + (tb && tb.crit ? tb.crit : 0));
     FX.bolt(e.x, e.y - 200, e.x, e.y, '#cfeaff', 0.22);
     FX.imgFx(crit ? 'effects/crit_effect.png' : 'effects/hit_effect.png', e.x, e.y - 30, 90, { life: 0.3 });
-    Enemies.hurt(e, d.dmg, { crit, color: '#cfeaff' });
+    Enemies.hurt(e, Math.round(d.dmg * (tb && tb.thunderDmg ? 1 + tb.thunderDmg : 1)), { crit, color: '#cfeaff' });
   },
 
   // ---------- 行为：雷云 ----------
@@ -217,8 +218,10 @@ const Skills = {
   bh_summon_melee(s, c, d, dt) {
     s.t -= dt;
     if (s.t > 0) return;
+    const tb = Player.talentBonus;
+    const cap = d.max + (tb && tb.summonCap ? tb.summonCap : 0);
     const n = this.summons.filter(u => u.kind === 'melee').length;
-    if (n >= d.max) { s.t = 0.5; return; }
+    if (n >= cap) { s.t = 0.5; return; }
     s.t = d.cd * Player.cdMult;
     this.spawnSkeleton('melee', d.dmg, d.hp, 0);
   },
@@ -231,12 +234,14 @@ const Skills = {
     this.spawnSkeleton('archer', d.dmg, d.hp, 0, d.range);
   },
   spawnSkeleton(kind, dmg, hp, tag, range) {
+    const tb = Player.talentBonus;
     const em = this.enhanceMult() * Player.summonMult;
+    const hpMult = tb && tb.summonHp ? 1 + tb.summonHp : 1;
     const a = M.rand(0, Math.PI * 2);
     this.summons.push({
       kind, tag: tag || 0,
       x: Player.x + Math.cos(a) * 60, y: Player.y + Math.sin(a) * 60,
-      hp: Math.round(hp * em), maxHp: Math.round(hp * em),
+      hp: Math.round(hp * em * hpMult), maxHp: Math.round(hp * em * hpMult),
       dmg: dmg * em, range: range || 0,
       r: 20, atkCd: 0, flash: 0, anim: M.rand(0, 5), pulse: 0,
       buffMult: 1, buffT: 0, faceX: 1, dead: false,
@@ -383,17 +388,19 @@ const Skills = {
       p.x += p.vx * dt; p.y += p.vy * dt;
       p.rot = p.spin ? p.rot + p.spin * dt : Math.atan2(p.vy, p.vx);
       let dead = p.t >= p.life;
-      for (const e of Enemies.list) {
-        if (e.dead) continue;
-        if (p.hitSet && p.hitSet.has(e)) continue;
-        if (M.dist(p.x, p.y, e.x, e.y - e.r) < p.r + e.r) {
-          this.projHit(p, e);
-          if (p.pierce > 0) {
-            p.pierce--;
-            (p.hitSet = p.hitSet || new Set()).add(e);
-          } else { dead = true; break; }
-        }
-      }
+      // P0：复用 Enemies 空间网格，只查同格 + 邻格敌人（40 = 最大敌人半径·精英），平方距离粗筛
+      Enemies.forEachNear(p.x, p.y, p.r + 40, (e) => {
+        if (dead || e.dead) return;
+        if (p.hitSet && p.hitSet.has(e)) return;
+        const dx = p.x - e.x, dy = p.y - (e.y - e.r);
+        const rr = p.r + e.r;
+        if (dx * dx + dy * dy >= rr * rr) return;
+        this.projHit(p, e);
+        if (p.pierce > 0) {
+          p.pierce--;
+          (p.hitSet = p.hitSet || new Set()).add(e);
+        } else dead = true;
+      });
       if (dead) {
         if (p.aoe) this.explode(p.x, p.y, p.aoe, p.dmg, p.burn);
         this.projectiles.splice(i, 1);
@@ -423,13 +430,14 @@ const Skills = {
         if (!e.dead && M.dist(x, y, e.x, e.y) < radius) this.applyBurn(e, burn.dps, burn.dur, burn.spread);
       }
     }
-    Engine.addShake(3);
+    // P0：火球爆炸震动删除（~1 次/秒过于频繁，命中特效已足够）
   },
 
   addShock(e, stacks, lv) {
+    const tb = Player.talentBonus;
     e.shockStacks = Math.min(3, (e.shockStacks || 0) + stacks);
     e.shockAmp = CONFIG.status.shockAmp[M.clamp(lv, 1, 5) - 1];
-    e.shockT = CONFIG.status.shockDur;
+    e.shockT = CONFIG.status.shockDur + (tb && tb.shockDur ? tb.shockDur : 0);
   },
   applyBurn(e, dps, dur, spread) {
     e.burnDps = Math.max(e.burnDps || 0, dps);
@@ -449,7 +457,7 @@ const Skills = {
           for (const e of Enemies.list) {
             if (!e.dead && M.dist(z.x, z.y, e.x, e.y) < z.r) this.applyBurn(e, z.burnDps, z.burnDur, 0);
           }
-          Engine.addShake(8);
+          Engine.addShake(8, true); // P0：大震动通道
           this.zones.splice(i, 1);
         }
         continue;
@@ -493,17 +501,21 @@ const Skills = {
           }
         }
       } else if (z.kind === 'frozen') {
+        const tb = Player.talentBonus;
+        const slowBonus = tb && tb.slowPct ? tb.slowPct : 0;
+        const freezeDurBonus = tb && tb.freezeDur ? tb.freezeDur : 0;
+        const shatterMult = tb && tb.shatterDmg ? 1 + tb.shatterDmg : 1;
         for (const e of Enemies.list) {
           if (e.dead) continue;
           const inside = M.dist(z.x, z.y, e.x, e.y) < z.r;
           if (inside) {
             Enemies.hurt(e, z.dps * 0.5, { color: '#aee6ff' });
-            e.slowPct = Math.max(e.slowPct || 0, z.slow); e.slowT = 0.6;
+            e.slowPct = Math.max(e.slowPct || 0, z.slow + slowBonus); e.slowT = 0.6;
             e.chillT = (e.chillT || 0) + 0.5;
             if (e.chillT >= 2 && !(e.freezeT > 0)) {
-              e.freezeT = CONFIG.status.freezeDur[z.lv - 1];
+              e.freezeT = CONFIG.status.freezeDur[z.lv - 1] + freezeDurBonus;
               e.chillT = 0;
-              e.pendingShatter = z.shatter;
+              e.pendingShatter = Math.round(z.shatter * shatterMult);
             }
           } else e.chillT = 0;
         }
@@ -519,7 +531,13 @@ const Skills = {
       u.anim += dt; u.atkCd -= dt; u.flash = Math.max(0, u.flash - dt);
       u.pulse = Math.max(0, u.pulse - dt * 3);
       if (u.buffT > 0) { u.buffT -= dt; if (u.buffT <= 0) u.buffMult = 1; }
-      const e = Enemies.nearest(u.x, u.y, 700);
+      // P1：索敌 0.2s 降频（原每帧全表扫描）；目标死亡立即重索
+      u.retargetT = (u.retargetT || 0) - dt;
+      if (u.retargetT <= 0 || (u.target && u.target.dead)) {
+        u.target = Enemies.nearest(u.x, u.y, 700);
+        u.retargetT = 0.2;
+      }
+      const e = u.target && !u.target.dead ? u.target : null;
       if (u.kind === 'melee' || u.kind === 'risen') {
         const tx = e ? e.x : Player.x + Math.cos(u.anim * 0.7) * 90;
         const ty = e ? e.y : Player.y + Math.sin(u.anim * 0.7) * 90;
@@ -605,8 +623,10 @@ const Skills = {
     const rd = this.getSkill('taoist_raise_dead');
     if (rd && e.type !== 'goblin') {
       const d = this.lvData(rd);
+      const tb = Player.talentBonus;
+      const chance = d.chance + (tb && tb.raiseChance ? tb.raiseChance : 0);
       const risen = this.summons.filter(u => u.kind === 'risen').length;
-      if (risen < d.max && Math.random() < d.chance) {
+      if (risen < d.max && Math.random() < chance) {
         const em = this.enhanceMult() * Player.summonMult;
         this.summons.push({
           kind: 'risen', tag: 0, x: e.x, y: e.y,
