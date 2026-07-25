@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>无尽入侵 · 管理后台</title>
+<link rel="stylesheet" href="/admin/style.css">
+</head>
+<body>
+<!-- 登录页 -->
+<div id="login-page" class="login-page">
+  <div class="login-box">
+    <h1>无尽入侵</h1>
+    <p class="login-sub">管理后台</p>
+    <input type="password" id="login-pass" placeholder="管理密码" autofocus>
+    <button id="login-btn" onclick="AdminApp.login()">登 录</button>
+    <p id="login-err" class="login-err"></p>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="main-app" class="main-app" style="display:none">
+  <nav class="sidebar">
+    <div class="sidebar-title">无尽入侵</div>
+    <a class="nav-item active" data-page="dashboard" onclick="AdminApp.nav('dashboard')">📊 仪表盘</a>
+    <a class="nav-item" data-page="players" onclick="AdminApp.nav('players')">👤 玩家管理</a>
+    <a class="nav-item" data-page="runs" onclick="AdminApp.nav('runs')">🎮 对局记录</a>
+    <a class="nav-item" data-page="skills" onclick="AdminApp.nav('skills')">⚔️ 技能管理</a>
+    <a class="nav-item" data-page="config" onclick="AdminApp.nav('config')">⚙️ 游戏配置</a>
+    <a class="nav-item" data-page="leaderboard" onclick="AdminApp.nav('leaderboard')">🏆 排行榜</a>
+    <a class="nav-item" data-page="announcements" onclick="AdminApp.nav('announcements')">📢 公告管理</a>
+    <div class="sidebar-bottom">
+      <button onclick="AdminApp.logout()" class="logout-btn">退出登录</button>
+    </div>
+  </nav>
+
+  <main class="content">
+    <!-- 仪表盘 -->
+    <section id="page-dashboard" class="page active">
+      <h2>仪表盘</h2>
+      <div class="stats-grid" id="stats-grid"></div>
+      <h3>职业分布</h3>
+      <div id="class-dist" class="class-dist"></div>
+    </section>
+
+    <!-- 玩家管理 -->
+    <section id="page-players" class="page">
+      <h2>玩家管理</h2>
+      <div class="toolbar">
+        <input type="text" id="player-search" placeholder="搜索 ID / 名称 / 平台" onkeyup="if(event.key==='Enter')AdminApp.loadPlayers()">
+        <button onclick="AdminApp.loadPlayers()">搜索</button>
+      </div>
+      <table class="data-table" id="players-table">
+        <thead><tr><th>ID</th><th>平台</th><th>等级</th><th>金币</th><th>碎片</th><th>总局数</th><th>状态</th><th>最后同步</th><th>操作</th></tr></thead>
+        <tbody id="players-body"></tbody>
+      </table>
+      <div class="pagination" id="players-pagination"></div>
+      <!-- 玩家详情弹窗 -->
+      <div id="player-detail-modal" class="modal" style="display:none">
+        <div class="modal-content modal-lg">
+          <span class="modal-close" onclick="AdminApp.closeModal('player-detail-modal')">&times;</span>
+          <h3>玩家详情</h3>
+          <div id="player-detail-content"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 对局记录 -->
+    <section id="page-runs" class="page">
+      <h2>对局记录</h2>
+      <div class="toolbar">
+        <select id="run-class-filter" onchange="AdminApp.loadRuns()">
+          <option value="">全部职业</option>
+          <option value="taoist">道士</option>
+          <option value="samurai">武士</option>
+          <option value="pharaoh">法老</option>
+          <option value="ice_witch">寒冰女巫</option>
+          <option value="crusader">十字军</option>
+        </select>
+        <input type="number" id="run-min-wave" placeholder="最低波次" style="width:100px">
+        <input type="number" id="run-min-kills" placeholder="最低击杀" style="width:100px">
+        <button onclick="AdminApp.loadRuns()">筛选</button>
+      </div>
+      <table class="data-table" id="runs-table">
+        <thead><tr><th>ID</th><th>玩家</th><th>职业</th><th>波次</th><th>存活</th><th>击杀</th><th>进化</th><th>流派</th><th>时间</th></tr></thead>
+        <tbody id="runs-body"></tbody>
+      </table>
+      <div class="pagination" id="runs-pagination"></div>
+    </section>
+
+    <!-- 技能管理 -->
+    <section id="page-skills" class="page">
+      <h2>技能管理</h2>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="AdminApp.showSkillEditor(null)">+ 新建技能</button>
+      </div>
+      <table class="data-table" id="skills-table">
+        <thead><tr><th>图标</th><th>ID</th><th>名称</th><th>流派</th><th>行为</th><th>标签</th><th>等级数</th><th>操作</th></tr></thead>
+        <tbody id="skills-body"></tbody>
+      </table>
+      <!-- 技能编辑器弹窗 -->
+      <div id="skill-editor-modal" class="modal" style="display:none">
+        <div class="modal-content modal-xl">
+          <span class="modal-close" onclick="AdminApp.closeModal('skill-editor-modal')">&times;</span>
+          <h3 id="skill-editor-title">技能编辑器</h3>
+          <div class="skill-editor">
+            <div class="skill-editor-left">
+              <label>技能 ID <input type="text" id="sk-id" placeholder="如 ice_shard"></label>
+              <label>名称 <input type="text" id="sk-name" placeholder="如 冰锥术"></label>
+              <label>流派 <input type="text" id="sk-flow" placeholder="如 冰霜流"></label>
+              <label>行为 <input type="text" id="sk-behavior" placeholder="如 ice_shard"></label>
+              <label>描述 <input type="text" id="sk-desc" placeholder="技能描述"></label>
+              <label>标签 <input type="text" id="sk-tags" placeholder="逗号分隔，如 冰霜,投射,控制"></label>
+              <label>投射物 <input type="text" id="sk-projectile" placeholder="如 projectiles/ice_shard.png"></label>
+              <label>图标路径 <input type="text" id="sk-icon" placeholder="如 icons/ice_shard.png"></label>
+              <label>图标上传 <input type="file" id="sk-icon-file" accept="image/*" onchange="AdminApp.previewSkillIcon(this)"></label>
+              <div id="sk-icon-preview" class="icon-preview"></div>
+            </div>
+            <div class="skill-editor-right">
+              <h4>等级数值表（每行一级，JSON 格式）</h4>
+              <textarea id="sk-levels" rows="12" placeholder='[{"dmg":10,"cd":1.8,"count":1},{"dmg":14,"cd":1.7,"count":1}]'></textarea>
+              <div class="skill-editor-actions">
+                <button class="btn-primary" onclick="AdminApp.saveSkill()">保存技能</button>
+                <button onclick="AdminApp.closeModal('skill-editor-modal')">取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 游戏配置 -->
+    <section id="page-config" class="page">
+      <h2>游戏配置</h2>
+      <div id="config-editor"></div>
+      <div class="toolbar" style="margin-top:16px">
+        <button class="btn-primary" onclick="AdminApp.saveConfig()">保存并发布新版本</button>
+        <span id="config-version" class="config-version"></span>
+      </div>
+    </section>
+
+    <!-- 排行榜 -->
+    <section id="page-leaderboard" class="page">
+      <h2>排行榜管理</h2>
+      <div class="toolbar">
+        <select id="lb-class" onchange="AdminApp.loadLeaderboard()">
+          <option value="all">全部职业</option>
+          <option value="taoist">道士</option>
+          <option value="samurai">武士</option>
+          <option value="pharaoh">法老</option>
+          <option value="ice_witch">寒冰女巫</option>
+          <option value="crusader">十字军</option>
+        </select>
+        <select id="lb-type" onchange="AdminApp.loadLeaderboard()">
+          <option value="survival">存活时间</option>
+          <option value="kills">击杀数</option>
+        </select>
+        <button class="btn-danger" onclick="AdminApp.resetLeaderboard()">重置排行榜</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>#</th><th>玩家</th><th>分数</th><th>更新时间</th></tr></thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </section>
+
+    <!-- 公告管理 -->
+    <section id="page-announcements" class="page">
+      <h2>公告管理</h2>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="AdminApp.showAnnouncementEditor(null)">+ 发布公告</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>标题</th><th>内容</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+        <tbody id="ann-body"></tbody>
+      </table>
+      <!-- 公告编辑弹窗 -->
+      <div id="ann-editor-modal" class="modal" style="display:none">
+        <div class="modal-content">
+          <span class="modal-close" onclick="AdminApp.closeModal('ann-editor-modal')">&times;</span>
+          <h3 id="ann-editor-title">发布公告</h3>
+          <label>标题 <input type="text" id="ann-title" placeholder="公告标题"></label>
+          <label>内容 <textarea id="ann-content" rows="4" placeholder="公告内容"></textarea></label>
+          <label><input type="checkbox" id="ann-active" checked> 启用</label>
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn-primary" onclick="AdminApp.saveAnnouncement()">保存</button>
+            <button onclick="AdminApp.closeModal('ann-editor-modal')">取消</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/admin/app.js"></script>
+</body>
+</html>
