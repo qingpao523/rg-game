@@ -1,4 +1,4 @@
-// 玩家：职业属性、移动、法力、主动技
+// 玩家：职业属性、移动、主动技（无法力系统，主动技仅 CD）
 const Player = {
   reset(classId) {
     const c = CONFIG.classes[classId];
@@ -8,9 +8,6 @@ const Player = {
     this.x = 0; this.y = 0;
     this.maxHp = P.hp + (c.passive.hpBonus || 0);
     this.hp = this.maxHp;
-    this.maxMana = P.mana + (c.passive.manaBonus || 0);
-    this.mana = this.maxMana;
-    this.manaRegen = P.manaRegen * (c.passive.manaRegenMult || 1);
     this.speed = P.speed * (c.passive.speedMult || 1);
     this.pickup = P.pickup;
     this.dmgMult = 1;
@@ -26,10 +23,10 @@ const Player = {
     this.iframes = 0;
     this.activeCd = 0;
     this.activeCdMax = 1;
-    this.shield = null; // {hp,t,convert,absorbed,barrier}
+    this.shield = null;
     this.buffs = { fire: { t: 0, dmg: 0 }, thunder: { t: 0, dmg: 0, lv: 1 } };
-    this.damageReduction = 0; // 钢铁皮肤：与 armor 加算，封顶 30%
-    this.maxHpBonus = 0;      // 生命祝福：技能提供的生命上限
+    this.damageReduction = 0;
+    this.maxHpBonus = 0;
     this.dead = false;
 
     // P3 v2.0：应用局外天赋加成（百分比制）
@@ -38,7 +35,6 @@ const Player = {
       if (b.hpPct) { this.maxHp = Math.round(this.maxHp * (1 + b.hpPct)); this.hp = this.maxHp; }
       if (b.speedPct) this.speed *= 1 + b.speedPct;
       if (b.pickupPct) this.pickup *= 1 + b.pickupPct;
-      if (b.manaRegenPct) this.manaRegen *= 1 + b.manaRegenPct;
       if (b.dmgReduction) this.damageReduction += b.dmgReduction;
       this.talentBonus = b;
     }
@@ -67,7 +63,6 @@ const Player = {
     } else {
       this.anim += dt * 0.4;
     }
-    this.mana = Math.min(this.maxMana, this.mana + this.manaRegen * dt);
     this.activeCd = Math.max(0, this.activeCd - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
     this.iframes = Math.max(0, this.iframes - dt);
@@ -152,12 +147,11 @@ const Player = {
   },
 
   canCast() {
-    return !this.dead && this.activeCd <= 0 && this.mana >= CONFIG.player.activeCost;
+    return !this.dead && this.activeCd <= 0;
   },
 
   castActive() {
     if (!this.canCast()) return false;
-    this.mana -= CONFIG.player.activeCost;
     const id = this.cfg.active;
     const d = this.activeData();
     const tb = this.talentBonus;

@@ -3,8 +3,8 @@ const CONFIG = {
   canvas: { w: 720, h: 1280 },
 
   player: {
-    hp: 120, mana: 100, manaRegen: 6, speed: 230,
-    pickup: 110, hurtCd: 0.5, activeCost: 30,
+    hp: 120, speed: 230,
+    pickup: 110, hurtCd: 0.5,
     drawH: 118,
   },
 
@@ -325,7 +325,7 @@ const CONFIG = {
       name: '寒冰女巫', title: '极寒低语', portrait: 'portraits/ice_witch_portrait.png',
       idle: 'characters/ice_witch_idle.png', move: 'characters/ice_witch_move.png',
       active: 'frozen_field', start: 'chain_lightning',
-      passive: { manaRegenMult: 1.5, manaBonus: 20 }, passiveDesc: '法力回复 +50%，法力上限 +20',
+      passive: { cdMult: 0.92 }, passiveDesc: '技能冷却 -8%',
       desc: '冰霜覆盖之处，时间静止',
     },
     crusader: {
@@ -341,19 +341,19 @@ const CONFIG = {
   // 敌人：杂兵 HP20(+5/波)、冲锋兵 HP15(+3/波)、精英 HP80(+20/波)
   enemies: {
     grunt: {
-      name: '杂兵', hp: 20, hpWave: 5, dmg: 8, dmgWave: 0.5, speed: 85,
+      name: '杂兵', hp: 20, hpWave: 5, hpWavePct: 0.08, dmg: 8, dmgWave: 0.5, speed: 85,
       exp: 1, r: 24, drawH: 80, img: 'enemies/grunt_move.png',
     },
     charger: {
-      name: '冲锋兵', hp: 15, hpWave: 3, dmg: 12, dmgWave: 0.6, speed: 70,
+      name: '冲锋兵', hp: 15, hpWave: 3, hpWavePct: 0.06, dmg: 12, dmgWave: 0.6, speed: 70,
       chargeSpeed: 330, chargeRange: 380, exp: 2, r: 24, drawH: 84, img: 'enemies/charger_move.png',
     },
     elite: {
-      name: '精英', hp: 80, hpWave: 20, dmg: 20, dmgWave: 1.2, speed: 55,
+      name: '精英', hp: 80, hpWave: 20, hpWavePct: 0.12, dmg: 20, dmgWave: 1.2, speed: 55,
       exp: 10, r: 40, drawH: 150, img: 'enemies/elite_move.png',
     },
     goblin: {
-      name: '宝藏哥布林', hp: 40, hpWave: 8, dmg: 0, dmgWave: 0, speed: 170,
+      name: '宝藏哥布林', hp: 40, hpWave: 8, hpWavePct: 0.10, dmg: 0, dmgWave: 0, speed: 170,
       exp: 15, r: 22, drawH: 76, img: 'enemies/goblin_run.png',
     },
   },
@@ -391,13 +391,11 @@ const CONFIG = {
     { id: 'skill', name: '禁忌残页', desc: '随机一个技能 +1 级' },
     { id: 'dmg', name: '狂战烙印', desc: '全局伤害 +10%' },
     { id: 'magnet', name: '聚宝磁场', desc: '拾取范围 +40%' },
-    { id: 'mana', name: '魔力奔涌', desc: '法力全满并 +25 上限' },
   ],
 
   statCards: [
     { id: 'hp', name: '命契加固', desc: '生命上限 +25 并回复 25', flow: '存续' },
     { id: 'speed', name: '疾风步', desc: '移动速度 +6%', flow: '存续' },
-    { id: 'mana', name: '灵泉', desc: '法力上限 +30', flow: '存续' },
     { id: 'dmg', name: '锐契', desc: '全局伤害 +8%', flow: '存续' },
     { id: 'pickup', name: '引力符', desc: '拾取范围 +30%', flow: '存续' },
   ],

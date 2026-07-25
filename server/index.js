@@ -303,6 +303,44 @@ route('DELETE', '/api/admin/announcements/:id', async (req, res, params, pathPar
   json(res, AnnouncementDB.remove(pathParams.id) ? 200 : 404, { ok: true });
 });
 
+// 怪物管理（通过 config.enemies 读写）
+route('GET', '/api/admin/enemies', async (req, res) => {
+  if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
+  json(res, 200, { enemies: ConfigDB.get().enemies || {} });
+});
+
+route('POST', '/api/admin/enemies', async (req, res) => {
+  if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
+  const body = await readBody(req);
+  const { id, ...data } = body;
+  if (!id) return json(res, 400, { error: 'missing enemy id' });
+  const cfg = ConfigDB.get();
+  if (cfg.enemies && cfg.enemies[id]) return json(res, 409, { error: 'enemy already exists' });
+  cfg.enemies = cfg.enemies || {};
+  cfg.enemies[id] = data;
+  ConfigDB.update({ enemies: cfg.enemies });
+  json(res, 201, { enemy: data, id });
+});
+
+route('PUT', '/api/admin/enemies/:id', async (req, res, params, pathParams) => {
+  if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
+  const body = await readBody(req);
+  const cfg = ConfigDB.get();
+  if (!cfg.enemies || !cfg.enemies[pathParams.id]) return json(res, 404, { error: 'not found' });
+  Object.assign(cfg.enemies[pathParams.id], body);
+  ConfigDB.update({ enemies: cfg.enemies });
+  json(res, 200, { enemy: cfg.enemies[pathParams.id] });
+});
+
+route('DELETE', '/api/admin/enemies/:id', async (req, res, params, pathParams) => {
+  if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
+  const cfg = ConfigDB.get();
+  if (!cfg.enemies || !cfg.enemies[pathParams.id]) return json(res, 404, { error: 'not found' });
+  delete cfg.enemies[pathParams.id];
+  ConfigDB.update({ enemies: cfg.enemies });
+  json(res, 200, { ok: true });
+});
+
 // ---------- 工具函数 ----------
 function sanitize(p) {
   return {

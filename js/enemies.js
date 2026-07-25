@@ -185,8 +185,8 @@ const Enemies = {
     this.list.push({
       type, cfg,
       x: Player.x + Math.cos(ang) * R, y: Player.y + Math.sin(ang) * R,
-      hp: Math.round(cfg.hp + cfg.hpWave * (w - 1)),
-      maxHp: Math.round(cfg.hp + cfg.hpWave * (w - 1)),
+      hp: Math.round((cfg.hp + cfg.hpWave * (w - 1)) * (1 + (cfg.hpWavePct || 0) * (w - 1))),
+      maxHp: Math.round((cfg.hp + cfg.hpWave * (w - 1)) * (1 + (cfg.hpWavePct || 0) * (w - 1))),
       dmg: cfg.dmg + cfg.dmgWave * (w - 1),
       speed: cfg.speed, r: cfg.r, exp: cfg.exp,
       dead: false, flash: 0, anim: M.rand(0, 5), atkT: 0,

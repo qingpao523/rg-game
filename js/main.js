@@ -270,7 +270,6 @@ const Game = {
     if (r.id === 'heal') Player.heal(Player.maxHp * 0.4);
     else if (r.id === 'dmg') Player.dmgMult += 0.10;
     else if (r.id === 'magnet') Player.pickup *= 1.4;
-    else if (r.id === 'mana') { Player.maxMana += 25; Player.mana = Player.maxMana; }
     else if (r.id === 'skill') {
       const ups = Skills.owned.filter(s => !CONFIG.evolutions[s.id] && s.lv < 5);
       if (ups.length) { const s = M.choice(ups); s.lv++; Skills.onLevelUp(s.id); }

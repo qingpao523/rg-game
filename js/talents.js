@@ -11,7 +11,6 @@ const TALENT_TREE = {
     // 第 2 层：进阶防御（第 1 层投 8 点解锁）
     { id: 'G4', layer: 2, name: '坚韧', maxLv: 5, desc: '受伤 -2%/级', effect: lv => ({ dmgReduction: 0.02 * lv }) },
     { id: 'G5', layer: 2, name: '快速回复', maxLv: 3, desc: '生命回复 +10%/级', effect: lv => ({ regenPct: 0.10 * lv }) },
-    { id: 'G6', layer: 2, name: '法力涌泉', maxLv: 3, desc: '法力回复 +15%/级', effect: lv => ({ manaRegenPct: 0.15 * lv }) },
     // 第 3 层：资源/操作（累计投 16 点解锁）
     { id: 'G7', layer: 3, name: '背水一战', maxLv: 1, desc: '生命<30%时获20%最大生命护盾5s，CD90s', effect: lv => ({ lastStand: lv }) },
     { id: 'G8', layer: 3, name: '自动拾取', maxLv: 1, desc: '每8s自动拾取周围经验球和金币', effect: lv => ({ autoPickup: lv }) },
@@ -19,7 +18,7 @@ const TALENT_TREE = {
     // 第 4 层：终极（累计投 24 点解锁，三选一）
     { id: 'G10', layer: 4, name: '不朽', maxLv: 1, desc: '每120s致命伤害锁定1HP持续3s无敌', effect: lv => ({ immortal: lv }), exclusive: 'G_ULT' },
     { id: 'G11', layer: 4, name: '拾取之王', maxLv: 1, desc: '拾取+50%，自动拾取CD3s，经验球+10%', effect: lv => ({ pickupKing: lv }), exclusive: 'G_ULT' },
-    { id: 'G12', layer: 4, name: '永动之躯', maxLv: 1, desc: '移动时每秒回0.5%最大生命和法力，脱战翻倍', effect: lv => ({ perpetual: lv }), exclusive: 'G_ULT' },
+    { id: 'G12', layer: 4, name: '永动之躯', maxLv: 1, desc: '移动时每秒回0.5%最大生命，脱战翻倍', effect: lv => ({ perpetual: lv }), exclusive: 'G_ULT' },
   ],
 
   // ---------- 专精天赋（3 层/职业，形态变化） ----------
@@ -63,7 +62,6 @@ const TALENT_TREE = {
       { id: 'I3', layer: 1, name: '范围扩大', maxLv: 3, desc: '所有范围技能半径+5%/10%/15%', effect: lv => ({ aoePct: 0.05 * lv }) },
       { id: 'I4', layer: 2, name: '永冻', maxLv: 2, desc: '冰霜技能寒意概率直接升级为冻结(10%/20%)', effect: lv => ({ instantFreeze: 0.10 * lv }) },
       { id: 'I5', layer: 2, name: '碎冰', maxLv: 2, desc: '冻结敌人死亡时碎裂对周围造成30%/60%伤害', effect: lv => ({ shatterOnDeath: 0.30 * lv }) },
-      { id: 'I6', layer: 2, name: '冰脉', maxLv: 2, desc: '冰霜技能命中后回复1/2法力', effect: lv => ({ iceMana: lv }) },
       { id: 'I7', layer: 3, name: '冰河时代', maxLv: 1, desc: '冰霜新星连续3次范围扩大；所有冰霜附带冻结累计', effect: lv => ({ iceAge: lv }), exclusive: 'I_ULT' },
       { id: 'I8', layer: 3, name: '绝对零度', maxLv: 1, desc: '极寒领域内敌人移速-70%，冻结时间+1s', effect: lv => ({ absoluteZero: lv }), exclusive: 'I_ULT' },
       { id: 'I9', layer: 3, name: '冰晶风暴', maxLv: 1, desc: '冰锥术命中后分裂5枚冰晶追踪最近敌人', effect: lv => ({ crystalStorm: lv }), exclusive: 'I_ULT' },
