@@ -114,6 +114,7 @@ const Storage = {
     d.stats.bestKills = Math.max(d.stats.bestKills, report.kills);
     d.stats.evos = (d.stats.evos || 0) + report.evoCount;
     d.gold = (d.gold || 0) + Math.round(report.kills * 0.5 + report.time * 0.2);
+    d.shards = (d.shards || 0) + (report.shards || 0);
     this.Save(d);
     const r = this.addExp(Math.round(report.kills + report.time));
     if (r.ups > 0 && typeof UI !== 'undefined') {
@@ -121,7 +122,64 @@ const Storage = {
       if (typeof SFX !== 'undefined') SFX.play('levelup');
     }
     this.checkAchievements(report);
+    // P2：异步上报结算数据到服务器
+    this._reportToServer(report);
     return r.data;
+  },
+
+  // ---------- P2 服务端同步 ----------
+  SERVER_URL: 'http://localhost:3000',
+  _token: null,
+
+  async loginToServer() {
+    try {
+      const res = await fetch(this.SERVER_URL + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: 'web' }),
+      });
+      const j = await res.json();
+      this._token = j.token;
+      return j.player;
+    } catch (e) { console.warn('[storage] server login failed:', e.message); return null; }
+  },
+
+  async syncToServer() {
+    if (!this._token) await this.loginToServer();
+    if (!this._token) return null;
+    try {
+      const d = this.Load();
+      const res = await fetch(this.SERVER_URL + '/api/player/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this._token },
+        body: JSON.stringify({
+          level: d.level, exp: d.exp, gold: d.gold, shards: d.shards,
+          talentPoints: d.talentPoints, talents: d.talents,
+          weapons: d.weapons, achievements: d.achievements, stats: d.stats,
+        }),
+      });
+      const j = await res.json();
+      return j.player;
+    } catch (e) { console.warn('[storage] sync failed:', e.message); return null; }
+  },
+
+  async _reportToServer(report) {
+    if (!this._token) return; // 未登录不阻塞
+    try {
+      fetch(this.SERVER_URL + '/api/run/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this._token },
+        body: JSON.stringify({
+          class_id: Game.classId, wave: report.wave, time_seconds: Math.round(report.time),
+          kills: report.kills, evolutions: report.evoCount,
+          skills: (report.build || []).map(b => b.name),
+          flow: report.flow || '',
+          exp_earned: Math.round(report.kills + report.time),
+          gold_earned: Math.round(report.kills * 0.5 + report.time * 0.2),
+          shards_earned: report.shards || 0,
+        }),
+      }).catch(() => {}); // 静默失败，不影响本地
+    } catch (e) {}
   },
 };
 

@@ -1,0 +1,41 @@
+{
+ "0bfcb0b9-ef13-407c-905b-c9694a25cf77": {
+  "id": "0bfcb0b9-ef13-407c-905b-c9694a25cf77",
+  "platform": "web",
+  "platform_uid": "97baeff2-9af0-42f5-bdaa-1d443ea3bd89",
+  "level": 1,
+  "exp": 0,
+  "gold": 0,
+  "shards": 0,
+  "talent_points": 0,
+  "talents": {},
+  "weapons": {},
+  "achievements": [],
+  "stats": {},
+  "created_at": "2026-07-25T14:54:54.844Z",
+  "updated_at": "2026-07-25T14:54:54.844Z"
+ },
+ "34a4fd72-548d-416d-9d8e-23e878c50420": {
+  "id": "34a4fd72-548d-416d-9d8e-23e878c50420",
+  "platform": "web",
+  "platform_uid": "85975add-c7af-4e36-a9f0-f47f8d221205",
+  "level": 5,
+  "exp": 320,
+  "gold": 1500,
+  "shards": 42,
+  "talent_points": 3,
+  "talents": {
+   "g_dmg_1": 2
+  },
+  "weapons": {},
+  "achievements": [
+   "first_blood"
+  ],
+  "stats": {
+   "runs": 10,
+   "kills": 2847
+  },
+  "created_at": "2026-07-25T14:55:26.921Z",
+  "updated_at": "2026-07-25T14:55:27.133Z"
+ }
+}

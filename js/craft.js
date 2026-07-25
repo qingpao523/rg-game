@@ -104,10 +104,10 @@ const Craft = {
     UI.goldText(ctx, this.tab === 'weapons' ? '武 器 库' : '背 包', W / 2, 80, 36);
 
     // 页签
-    const tabs = [['weapons', '武器'], ['backpack', '背包']];
+    const tabs = [['weapons', '武器'], ['backpack', '背包'], ['leaderboard', '排行']];
     this._tabs = [];
     tabs.forEach((t, i) => {
-      const tx = W / 2 - 120 + i * 130, ty = 110, tw = 110, th = 40;
+      const tx = W / 2 - 185 + i * 130, ty = 110, tw = 110, th = 40;
       const active = this.tab === t[0];
       ctx.save();
       ctx.fillStyle = active ? 'rgba(201,168,106,0.3)' : 'rgba(20,20,30,0.8)';
@@ -129,7 +129,8 @@ const Craft = {
     ctx.fillText('碎片 ' + this.shards(), W / 2, 178);
 
     if (this.tab === 'weapons') this._drawWeapons(ctx);
-    else this._drawBackpack(ctx);
+    else if (this.tab === 'backpack') this._drawBackpack(ctx);
+    else if (this.tab === 'leaderboard') this._drawLeaderboard(ctx);
 
     // 关闭按钮
     const cbw = 200, cbh = 52, cbx = (W - cbw) / 2, cby = H - 100;
@@ -267,6 +268,56 @@ const Craft = {
       ctx.restore();
       ax += 200;
     });
+  },
+
+  _drawLeaderboard(ctx) {
+    const W = CONFIG.canvas.w;
+    ctx.fillStyle = '#f0d9a0';
+    ctx.font = 'bold 19px "PingFang SC", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('排 行 榜', W / 2, 220);
+    ctx.font = '14px "PingFang SC", sans-serif';
+    ctx.fillStyle = 'rgba(160,160,175,0.6)';
+    ctx.fillText('需连接服务器', W / 2, 250);
+
+    if (!this._lbData) {
+      this._fetchLeaderboard();
+      ctx.fillStyle = 'rgba(200,200,210,0.5)';
+      ctx.fillText('加载中…', W / 2, 400);
+      return;
+    }
+
+    const rows = this._lbData;
+    if (!rows.length) {
+      ctx.fillStyle = 'rgba(200,200,210,0.5)';
+      ctx.fillText('暂无数据', W / 2, 400);
+      return;
+    }
+
+    ctx.textAlign = 'left';
+    rows.slice(0, 20).forEach((r, i) => {
+      const y = 300 + i * 34;
+      const isTop3 = i < 3;
+      ctx.fillStyle = isTop3 ? '#f0d9a0' : 'rgba(200,200,210,0.75)';
+      ctx.font = (isTop3 ? 'bold ' : '') + '15px "PingFang SC", sans-serif';
+      ctx.fillText('#' + (i + 1), 80, y);
+      ctx.fillText(r.name || '执契者', 140, y);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = isTop3 ? '#c9a86a' : 'rgba(201,168,106,0.7)';
+      ctx.fillText(r.score + (this._lbType === 'survival' ? 's' : ' 击杀'), 620, y);
+      ctx.textAlign = 'left';
+    });
+  },
+
+  async _fetchLeaderboard() {
+    if (this._lbFetching) return;
+    this._lbFetching = true;
+    try {
+      const res = await fetch(Storage.SERVER_URL + '/api/leaderboard?class=all&type=survival');
+      const j = await res.json();
+      this._lbData = j.leaderboard || [];
+    } catch (e) { this._lbData = []; }
+    this._lbFetching = false;
   },
 
   _rr(ctx, x, y, w, h, r) {

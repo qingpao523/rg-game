@@ -1,0 +1,11 @@
+{
+  "name": "rg-h5-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "《无尽入侵》H5 后端：存档同步 + 排行榜（零依赖）",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  }
+}
