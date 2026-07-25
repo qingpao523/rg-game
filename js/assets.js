@@ -27,7 +27,7 @@ const Assets = {
       const img = new Image();
       img.onload = step;
       img.onerror = () => { this.failed.push(path); step(); };
-      img.src = 'assets/' + path;
+      img.src = 'assets/' + path + '?v=' + (window.GAME_VERSION || '1');
       this.images[path] = img;
     }
   },

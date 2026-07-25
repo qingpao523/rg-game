@@ -77,6 +77,21 @@ const UI = {
       ctx.drawImage(logo, (W - lw) / 2, 60, lw, lh);
     }
     this.goldText(ctx, '无尽入侵', W / 2, 214, 58);
+
+    // 声音开关按钮（主菜单右上角）
+    const sfxOn = (typeof SFX !== 'undefined') && SFX.enabled;
+    const sb = { x: W - 76, y: 40, w: 56, h: 40 };
+    ctx.save();
+    ctx.fillStyle = sfxOn ? 'rgba(201,168,106,0.25)' : 'rgba(60,60,70,0.4)';
+    ctx.strokeStyle = 'rgba(201,168,106,0.5)';
+    this.rr(ctx, sb.x, sb.y, sb.w, sb.h, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = sfxOn ? '#f0d9a0' : 'rgba(150,150,160,0.6)';
+    ctx.font = '18px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(sfxOn ? '🔊' : '🔇', sb.x + sb.w / 2, sb.y + 27);
+    ctx.restore();
+    this.sfxBtn = sb;
     ctx.save();
     ctx.font = '18px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
@@ -532,10 +547,58 @@ const UI = {
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = 'rgba(14,14,22,0.95)';
     ctx.strokeStyle = 'rgba(201,168,106,0.6)';
-    this.rr(ctx, 160, 420, 400, 440, 14);
+    this.rr(ctx, 90, 200, 540, 880, 14);
     ctx.fill(); ctx.stroke();
-    this.goldText(ctx, '处置暂停', W / 2, 500, 34);
+    this.goldText(ctx, '处置暂停', W / 2, 268, 34);
 
+    // 声音开关按钮（右上角）
+    const sfxOn = (typeof SFX !== 'undefined') && SFX.enabled;
+    const sb = { x: 552, y: 228, w: 56, h: 40 };
+    ctx.save();
+    ctx.fillStyle = sfxOn ? 'rgba(201,168,106,0.25)' : 'rgba(60,60,70,0.4)';
+    ctx.strokeStyle = 'rgba(201,168,106,0.5)';
+    this.rr(ctx, sb.x, sb.y, sb.w, sb.h, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = sfxOn ? '#f0d9a0' : 'rgba(150,150,160,0.6)';
+    ctx.font = '18px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(sfxOn ? '🔊' : '🔇', sb.x + sb.w / 2, sb.y + 27);
+    ctx.restore();
+    this.sfxBtn = sb;
+
+    // 当前技能列表
+    ctx.fillStyle = '#c9a86a';
+    ctx.font = 'bold 16px "PingFang SC", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('当前技能（' + Skills.owned.length + '）', 120, 316);
+
+    const owned = Skills.owned;
+    const colW = 240, itemH = 64;
+    owned.forEach((s, i) => {
+      const c = Skills.cfgOf(s.id);
+      if (!c) return;
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = 120 + col * (colW + 20), y = 336 + row * (itemH + 10);
+      const isEvo = !!CONFIG.evolutions[s.id];
+      ctx.save();
+      ctx.fillStyle = isEvo ? 'rgba(201,168,106,0.12)' : 'rgba(20,20,30,0.8)';
+      ctx.strokeStyle = isEvo ? 'rgba(240,217,160,0.6)' : 'rgba(100,100,110,0.3)';
+      this.rr(ctx, x, y, colW, itemH, 8);
+      ctx.fill(); ctx.stroke();
+      const icon = Assets.img(c.icon);
+      if (icon) ctx.drawImage(icon, x + 8, y + 8, 48, 48);
+      ctx.fillStyle = isEvo ? '#f0d9a0' : '#e8e2d2';
+      ctx.font = 'bold 14px "PingFang SC", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(c.name, x + 64, y + 26);
+      ctx.fillStyle = isEvo ? '#c9a86a' : 'rgba(160,160,175,0.7)';
+      ctx.font = '12px "PingFang SC", sans-serif';
+      ctx.fillText(isEvo ? '进化' : 'Lv.' + s.lv, x + 64, y + 46);
+      ctx.restore();
+    });
+
+    // 按钮区（技能列表下方）
+    const btnY = 336 + Math.ceil(owned.length / 2) * (itemH + 10) + 20;
     this.pauseButtons = [];
     const defs = [
       { id: 'resume', text: '继续处置' },
@@ -543,7 +606,7 @@ const UI = {
       { id: 'menu', text: '返回档案室' },
     ];
     defs.forEach((d, i) => {
-      const bx = 220, by = 550 + i * 92, bw = 280, bh = 64;
+      const bx = 220, by = btnY + i * 76, bw = 280, bh = 60;
       this.drawButton(ctx, bx, by, bw, bh, d.text, i === 0);
       this.pauseButtons.push({ x: bx, y: by, w: bw, h: bh, id: d.id });
     });
@@ -698,6 +761,7 @@ const UI = {
       return Wheel.tap(x, y);
     }
     if (st === 'menu') {
+      if (this.sfxBtn && this.inRect(x, y, this.sfxBtn)) { if (typeof SFX !== 'undefined') SFX.toggle(); return true; }
       if (this.talentBtn && this.inRect(x, y, this.talentBtn)) { TalentsUI.toggle(); return true; }
       if (this.menuExtraBtns) {
         for (const b of this.menuExtraBtns) {
@@ -722,6 +786,7 @@ const UI = {
         if (this.inRect(x, y, c)) { Game.pickChoice(c.choice); return true; }
       }
     } else if (st === 'pause') {
+      if (this.sfxBtn && this.inRect(x, y, this.sfxBtn)) { if (typeof SFX !== 'undefined') SFX.toggle(); return true; }
       for (const b of this.pauseButtons) {
         if (this.inRect(x, y, b)) { Game.pauseAction(b.id); return true; }
       }

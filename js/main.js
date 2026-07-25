@@ -290,4 +290,6 @@ const Game = {
   },
 };
 
-window.addEventListener('load', () => Game.init());
+// 启动（兼容动态加载：若 window load 已触发则立即初始化）
+if (document.readyState === 'complete') Game.init();
+else window.addEventListener('load', () => Game.init());

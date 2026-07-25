@@ -6,9 +6,20 @@ const SFX = {
   init() {
     if (this.ctx) return;
     try {
+      // 读取保存的声音开关状态
+      const saved = localStorage.getItem('rg_sfx_enabled');
+      if (saved !== null) this.enabled = saved === '1';
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) this.ctx = new AC();
     } catch (e) { this.ctx = null; }
+  },
+
+  // 切换声音开关（持久化）
+  toggle() {
+    this.enabled = !this.enabled;
+    try { localStorage.setItem('rg_sfx_enabled', this.enabled ? '1' : '0'); } catch (e) {}
+    if (this.enabled) { this.unlock(); this.play('pickup'); }
+    return this.enabled;
   },
 
   // 首次用户手势时解锁音频（移动端自动播放限制）
