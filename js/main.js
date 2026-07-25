@@ -29,6 +29,8 @@ const Game = {
   // S5：启动时拉取远程配置覆盖本地 CONFIG（静默失败，不影响单机）
   async fetchRemoteConfig() {
     const SERVER = (typeof Storage !== 'undefined' && Storage.SERVER_URL) || 'http://localhost:3000';
+    // 先登录服务端（拿到 token，后续上报对局/同步存档才能生效）
+    if (typeof Storage !== 'undefined') { await Storage.loginToServer(); }
     try {
       const res = await fetch(SERVER + '/api/config/game');
       const { config, skills } = await res.json();

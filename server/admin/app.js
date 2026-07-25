@@ -89,8 +89,9 @@ const AdminApp = {
       tbody.innerHTML = data.items.map(p => `<tr>
         <td title="${p.id}">${p.id.slice(0, 12)}…</td>
         <td><span class="tag tag-blue">${p.platform}</span></td>
-        <td>Lv.${p.level}</td><td>${p.gold}</td><td>${p.shards || 0}</td>
-        <td>${(p.stats || {}).runs || 0}</td>
+        <td>Lv.${p.level}</td><td>${p.exp || 0}</td><td>${p.gold}</td><td>${p.shards || 0}</td>
+        <td>${p.generalTalentPoints || 0}</td><td>${p.specialistTalentPoints || 0}</td>
+        <td>${(p.stats || {}).runs || 0}</td><td>${(p.stats || {}).kills || 0}</td>
         <td>${p.banned ? '<span class="tag tag-red">封禁</span>' : '<span class="tag tag-green">正常</span>'}</td>
         <td>${(p.updated_at || '').slice(0, 16).replace('T', ' ')}</td>
         <td>
@@ -146,6 +147,7 @@ const AdminApp = {
         <td>${names[r.class_id] || r.class_id}</td><td>第${r.wave}波</td>
         <td>${r.time_seconds}s</td><td>${r.kills}</td><td>${r.evolutions||0}</td>
         <td><span class="tag tag-gold">${r.flow || '-'}</span></td>
+        <td>${r.exp_earned||0}</td><td>${r.gold_earned||0}</td><td>${r.shards_earned||0}</td>
         <td>${(r.created_at||'').slice(0,16).replace('T',' ')}</td>
       </tr>`).join('');
       this.renderPagination('runs-pagination', data.total, data.page, data.size, p => this.loadRuns(p));

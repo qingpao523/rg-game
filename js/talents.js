@@ -10,7 +10,7 @@ const TALENT_TREE = {
     { id: 'G3', layer: 1, name: '扩大拾取', maxLv: 3, desc: '拾取范围 +10%/级', effect: lv => ({ pickupPct: 0.10 * lv }) },
     // 第 2 层：进阶防御（第 1 层投 8 点解锁）
     { id: 'G4', layer: 2, name: '坚韧', maxLv: 5, desc: '受伤 -2%/级', effect: lv => ({ dmgReduction: 0.02 * lv }) },
-    { id: 'G5', layer: 2, name: '快速回复', maxLv: 3, desc: '生命回复 +10%/级', effect: lv => ({ regenPct: 0.10 * lv }) },
+    { id: 'G5', layer: 2, name: '生命强化', maxLv: 3, desc: '生命上限 +10%/级', effect: lv => ({ hpPct: 0.10 * lv }) },
     // 第 3 层：资源/操作（累计投 16 点解锁）
     { id: 'G7', layer: 3, name: '背水一战', maxLv: 1, desc: '生命<30%时获20%最大生命护盾5s，CD90s', effect: lv => ({ lastStand: lv }) },
     { id: 'G8', layer: 3, name: '自动拾取', maxLv: 1, desc: '每8s自动拾取周围经验球和金币', effect: lv => ({ autoPickup: lv }) },
@@ -176,12 +176,14 @@ const Talents = {
 const TalentsUI = {
   open: false,
   tab: 'general', // general / specialist
+  viewClass: null, // 专精页当前查看的职业（可切换）
   scroll: 0,
   closeBtn: { x: 632, y: 96, w: 56, h: 40 },
   tabBtns: [],
+  classBtns: [],
   nodes: [],
 
-  toggle() { this.open = !this.open; this.scroll = 0; this.tab = 'general'; },
+  toggle() { this.open = !this.open; this.scroll = 0; this.tab = 'general'; this.viewClass = Game.classId; },
 
   draw(ctx) {
     if (!this.open) return;
@@ -197,7 +199,7 @@ const TalentsUI = {
     ctx.fillText('通用点 ' + (d.generalTalentPoints || 0) + ' · 专精点 ' + (d.specialistTalentPoints || 0), W / 2, 155);
 
     // 页签
-    const tabs = [['general', '通用'], ['specialist', '专精·' + (CONFIG.classes[Game.classId]?.name || '')]];
+    const tabs = [['general', '通用'], ['specialist', '专精']];
     this.tabBtns = [];
     tabs.forEach((tb, i) => {
       const bx = 180 + i * 190, by = 172, bw = 170, bh = 38;
@@ -216,14 +218,41 @@ const TalentsUI = {
 
     // 渲染层级
     const isGen = this.tab === 'general';
-    const tree = isGen ? TALENT_TREE.general : (TALENT_TREE.specialist[Game.classId] || []);
+    const curClass = this.viewClass || Game.classId;
+    const tree = isGen ? TALENT_TREE.general : (TALENT_TREE.specialist[curClass] || []);
     const unlockTable = isGen ? TALENT_TREE.generalUnlock : TALENT_TREE.specialistUnlock;
     const layerNames = isGen
       ? ['基础生存', '进阶防御', '资源/操作', '终极（三选一）']
       : ['技能增幅', '元素/召唤专精', '终极质变（三选一）'];
 
+    // 专精页：职业切换按钮
+    this.classBtns = [];
+    let treeTopY = 230;
+    if (!isGen) {
+      const names = { taoist: '道士', samurai: '武士', pharaoh: '法老', ice_witch: '女巫', crusader: '十字军' };
+      const cw2 = 128, gap2 = 10;
+      const totalW = 5 * cw2 + 4 * gap2;
+      const x0 = (W - totalW) / 2;
+      CONFIG.classOrder.forEach((cid, i) => {
+        const bx = x0 + i * (cw2 + gap2), by = 222, bw2 = cw2, bh2 = 36;
+        const active = curClass === cid;
+        ctx.save();
+        ctx.fillStyle = active ? 'rgba(201,168,106,0.85)' : 'rgba(28,28,40,0.9)';
+        ctx.strokeStyle = 'rgba(201,168,106,0.5)';
+        UI.rr(ctx, bx, by, bw2, bh2, 7);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = active ? '#2a1e08' : '#c9a86a';
+        ctx.font = 'bold 14px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(names[cid] || cid, bx + bw2 / 2, by + 23);
+        ctx.restore();
+        this.classBtns.push({ x: bx, y: by, w: bw2, h: bh2, cid });
+      });
+      treeTopY = 274;
+    }
+
     this.nodes = [];
-    let y = 230 - this.scroll;
+    let y = treeTopY - this.scroll;
     for (let layer = 1; layer <= (isGen ? 4 : 3); layer++) {
       const unlocked = Talents.isLayerUnlocked(d, tree, layer, unlockTable);
       const layerNodes = tree.filter(t => t.layer === layer);
@@ -309,6 +338,9 @@ const TalentsUI = {
     if (UI.inRect(x, y, this.closeBtn)) { this.open = false; return true; }
     for (const b of this.tabBtns) {
       if (UI.inRect(x, y, b)) { this.tab = b.tab; this.scroll = 0; return true; }
+    }
+    for (const b of this.classBtns) {
+      if (UI.inRect(x, y, b)) { this.viewClass = b.cid; this.scroll = 0; return true; }
     }
     for (const n of this.nodes) {
       if (UI.inRect(x, y, n)) { Talents.unlock(n.id, n.isGen); return true; }

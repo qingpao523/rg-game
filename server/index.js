@@ -87,8 +87,8 @@ route('GET', '/api/player/profile', async (req, res, params) => {
 
 route('POST', '/api/player/sync', async (req, res) => {
   const body = await readBody(req);
-  const { playerId, save } = body;
-  if (!playerId || !save) return json(res, 400, { error: 'missing playerId or save' });
+  const { playerId, ...save } = body;
+  if (!playerId) return json(res, 400, { error: 'missing playerId' });
   let player = PlayerDB.get(playerId);
   if (!player) player = PlayerDB.create(playerId, save.platform || 'web', playerId);
   if (player.banned) return json(res, 403, { error: 'banned' });
