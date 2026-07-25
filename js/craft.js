@@ -142,12 +142,12 @@ const Craft = {
       ctx.font = 'bold 19px "PingFang SC", serif';
       ctx.textAlign = 'left';
       ctx.fillText(c.name + ' · ' + c.title, 60, y);
-      y += 10;
+      y += 16;
 
       for (const w of WEAPONS[cid]) {
         const ow = owned.find(x => x.id === w.id);
         const isOwned = ow && ow.owned;
-        y += 46;
+        y += 48;
         ctx.save();
         ctx.fillStyle = isOwned ? 'rgba(28,38,18,0.9)' : 'rgba(14,14,22,0.88)';
         ctx.strokeStyle = isOwned ? 'rgba(100,180,100,0.5)' : 'rgba(201,168,106,0.35)';
@@ -191,7 +191,7 @@ const Craft = {
         }
         ctx.restore();
       }
-      y += 52;
+      y += 64;
     }
   },
 
