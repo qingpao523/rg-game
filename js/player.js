@@ -103,7 +103,7 @@ const Player = {
     this.hp -= d;
     this.flash = 0.15;
     this.hurtT = CONFIG.player.hurtCd;
-    Engine.addShake(7);
+    Engine.addShake(3); // P0：受击降幅（原 7，被围时 2 次/秒形成永震）
     FX.text(this.x, this.y - 90, '-' + d, '#ff6b6b', 22);
     if (this.hp <= 0) { this.hp = 0; this.dead = true; Game.onDeath(); }
   },
@@ -178,7 +178,7 @@ const Player = {
     this.x = nx; this.y = ny;
     this.iframes = Math.max(this.iframes, d.invuln);
     this.activeCd = Math.max(0.5, this.activeCd - this.activeCdMax * d.killCd * kills);
-    Engine.addShake(6);
+    Engine.addShake(3); // P0：一闪降幅（原 6，cd 仅 2s 过于频繁）
   },
 
   // 法老：冥棺敕命 —— 冲击 + 召回强化召唤物

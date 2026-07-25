@@ -88,7 +88,16 @@ const Engine = {
   SX(x) { return x - this.cam.x + CONFIG.canvas.w / 2 + this.cam.sx; },
   SY(y) { return y - this.cam.y + CONFIG.canvas.h / 2 + this.cam.sy; },
 
-  addShake(n) { this.cam.shake = Math.min(18, this.cam.shake + n); },
+  // P0 震动节流分级：max 合并（不叠加）+ 小震动 0.25s CD + 幅度上限；big=true 走大震动通道
+  addShake(n, big) {
+    const now = performance.now();
+    if (!big) {
+      if (now - (this._smallShakeT || 0) < 250) return;
+      this._smallShakeT = now;
+      n = Math.min(n, 5);
+    }
+    this.cam.shake = Math.min(big ? 14 : 8, Math.max(this.cam.shake, n));
+  },
   updateCamera(dt, tx, ty) {
     const c = this.cam;
     c.x += (tx - c.x) * Math.min(1, dt * 6);
@@ -144,6 +153,23 @@ const FX = {
   glow(x, y, r, color, life, alpha) {
     this.spawn({ type: 'glow', x, y, r: r || 30, color: color || '#fff', life: life || 0.1, alpha0: alpha != null ? alpha : 0.3, alpha1: 0, scale0: 1, scale1: 1.3 });
   },
+  // P0 glow 渐变预渲染：按颜色缓存 128x128 offscreen canvas，draw 时 drawImage 代替每帧 createRadialGradient
+  glowSprite(color) {
+    const cache = this._glowSprites || (this._glowSprites = {});
+    let c = cache[color];
+    if (!c) {
+      c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const g2 = c.getContext('2d');
+      const grad = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, color);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g2.fillStyle = grad;
+      g2.fillRect(0, 0, 128, 128);
+      cache[color] = c;
+    }
+    return c;
+  },
   bolt(x1, y1, x2, y2, color, life) {
     this.spawn({ type: 'bolt', x: x1, y: y1, x2, y2, color: color || '#9fd8ff', life: life || 0.18, scale0: 1, scale1: 1 });
   },
@@ -183,13 +209,7 @@ const FX = {
         ctx.stroke();
       } else if (e.type === 'glow') {
         const rr = e.r * s;
-        const g = ctx.createRadialGradient(x, y, 0, x, y, rr);
-        g.addColorStop(0, e.color);
-        g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, rr, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.drawImage(this.glowSprite(e.color), x - rr, y - rr, rr * 2, rr * 2);
       } else if (e.type === 'bolt') {
         ctx.strokeStyle = e.color;
         ctx.lineWidth = 3.5;

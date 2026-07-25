@@ -1,6 +1,9 @@
 // P1 局外成长持久化：存档 / 局外经验 / 成就检测
 const Storage = {
   KEY: 'rg_h5_save',
+  _cache: null,   // 内存缓存：Load() 不再每次 JSON.parse
+  _dirty: false,  // 标脏：Save() 后 1s 批量落盘
+  _flushT: null,
 
   defaultData() {
     return {
@@ -11,19 +14,41 @@ const Storage = {
   },
 
   Load() {
+    if (this._cache) return this._cache;
+    let d;
     try {
       const raw = localStorage.getItem(this.KEY);
-      if (!raw) return this.defaultData();
-      const d = JSON.parse(raw);
-      return Object.assign(this.defaultData(), d || {});
-    } catch (e) { return this.defaultData(); }
+      d = raw ? Object.assign(this.defaultData(), JSON.parse(raw) || {}) : this.defaultData();
+    } catch (e) { d = this.defaultData(); }
+    this._cache = d;
+    return d;
   },
 
   Save(data) {
-    try { localStorage.setItem(this.KEY, JSON.stringify(data)); } catch (e) {}
+    this._cache = data;
+    this._dirty = true;
+    this.scheduleFlush(); // 1s 批量落盘，战斗中拾取碎片不再同步写 localStorage
+  },
+
+  scheduleFlush() {
+    if (this._flushT) return;
+    this._flushT = setTimeout(() => {
+      this._flushT = null;
+      this.flush();
+    }, 1000);
+  },
+
+  // 立即落盘（页面隐藏/关闭前调用，避免 1s 窗口内丢数据）
+  flush() {
+    if (!this._dirty || !this._cache) return;
+    this._dirty = false;
+    try { localStorage.setItem(this.KEY, JSON.stringify(this._cache)); } catch (e) {}
   },
 
   Reset() {
+    this._cache = null;
+    this._dirty = false;
+    if (this._flushT) { clearTimeout(this._flushT); this._flushT = null; }
     try { localStorage.removeItem(this.KEY); } catch (e) {}
   },
 
@@ -99,3 +124,7 @@ const Storage = {
     return r.data;
   },
 };
+
+// 页面隐藏/关闭前强制落盘，避免 1s 批量窗口内丢数据
+window.addEventListener('beforeunload', () => Storage.flush());
+window.addEventListener('pagehide', () => Storage.flush());

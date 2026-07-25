@@ -12,10 +12,13 @@ const Enemies = {
   eventType: null,    // 'spring' | 'rift'
   eventT: 0,          // 裂界裂缝剩余时间
   expDouble: false,   // 裂界裂缝期间经验翻倍
+  // P0 空间哈希网格（cell 64px）：separate 与投射物碰撞共用，每帧重建一次，数组池复用避免 GC
+  grid: { cell: 64, map: new Map(), pool: [] },
 
   reset() {
     this.list.length = 0;
     this.drops.length = 0;
+    this.grid.map.clear();
     this.goblin = null;
     this.wave = 1;
     this.kills = 0;
@@ -26,6 +29,40 @@ const Enemies = {
     this.eventType = null;
     this.eventT = 0;
     this.expDouble = false;
+  },
+
+  // ---------- 空间网格 ----------
+  _gridKey(cx, cy) { return ((cx & 0xffff) << 16) | (cy & 0xffff); },
+
+  // 每帧重建一次：清空旧格子（数组压入池复用），按存活敌人当前位置入格，并赋 _qi 序号供配对去重
+  buildGrid() {
+    const g = this.grid;
+    for (const arr of g.map.values()) { arr.length = 0; g.pool.push(arr); }
+    g.map.clear();
+    const inv = 1 / g.cell;
+    let qi = 0;
+    for (const e of this.list) {
+      if (e.dead) continue;
+      e._qi = qi++;
+      const key = this._gridKey(Math.floor(e.x * inv), Math.floor(e.y * inv));
+      let arr = g.map.get(key);
+      if (!arr) { arr = g.pool.pop() || []; g.map.set(key, arr); }
+      arr.push(e);
+    }
+  },
+
+  // 访问 (x,y) 半径 r 覆盖的所有格子内的敌人（投射物碰撞用：只查同格 + 邻格）
+  forEachNear(x, y, r, cb) {
+    const inv = 1 / this.grid.cell;
+    const x0 = Math.floor((x - r) * inv), x1 = Math.floor((x + r) * inv);
+    const y0 = Math.floor((y - r) * inv), y1 = Math.floor((y + r) * inv);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const arr = this.grid.map.get(this._gridKey(cx, cy));
+        if (!arr) continue;
+        for (let i = 0; i < arr.length; i++) cb(arr[i]);
+      }
+    }
   },
 
   // ---------- 查询 ----------
@@ -129,7 +166,7 @@ const Enemies = {
   spawnAtEdge(type) {
     const cfg = CONFIG.enemies[type];
     const ang = M.rand(0, Math.PI * 2);
-    const R = type === 'goblin' ? 520 : 840; // 哥布林出生更近，便于拦截
+    const R = type === 'goblin' ? CONFIG.waves.goblinSpawnR : 840; // 哥布林出生更近，便于拦截
     const w = this.wave;
     this.list.push({
       type, cfg,
@@ -203,7 +240,7 @@ const Enemies = {
       const n = Math.min(W.eliteCap, 1 + Math.floor((Game.time - W.eliteFirstTime) / 150));
       for (let i = 0; i < n; i++) this.spawnAtEdge('elite');
       UI.banner('高危单位：司灾铜像苏醒');
-      Engine.addShake(8);
+      Engine.addShake(8, true); // P0：大震动通道
       UI.redPulse(1.5);
     }
     this.goblinT -= dt;
@@ -217,6 +254,7 @@ const Enemies = {
       if (e.dead) { this.list.splice(i, 1); continue; }
       this.updateOne(e, dt);
     }
+    this.buildGrid(); // P0：每帧重建空间网格（本帧 separate 与下一帧投射物碰撞共用）
     this.separate();
     this.updateDrops(dt);
   },
@@ -334,7 +372,7 @@ const Enemies = {
         const r = this.slamRadius();
         FX.ring(e.x, e.y, 20, r, '#ff5a3c', 0.4, 6);
         FX.imgFx('effects/hit_effect.png', e.x, e.y, r * 1.5, { life: 0.3 });
-        Engine.addShake(8);
+        Engine.addShake(8, true); // P0：大震动通道
         if (M.dist(e.x, e.y, Player.x, Player.y) < r + 26) Player.hurt(this.slamDamage());
       }
       return;
@@ -356,21 +394,28 @@ const Enemies = {
     e.y += (ty - e.y) / dd * spd * dt;
   },
 
+  // P0：基于空间网格的分离——只检查同格 + 相邻 8 格，_qi 保证每对只处理一次，平方距离粗筛后再开方
   separate() {
-    const L = this.list;
-    for (let i = 0; i < L.length; i++) {
-      const a = L[i];
+    const inv = 1 / this.grid.cell;
+    for (const a of this.list) {
       if (a.dead) continue;
-      for (let j = i + 1; j < L.length; j++) {
-        const b = L[j];
-        if (b.dead) continue;
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const d = Math.hypot(dx, dy);
-        const min = a.r + b.r - 6;
-        if (d > 0 && d < min) {
-          const push = (min - d) / d * 0.4;
-          a.x -= dx * push; a.y -= dy * push;
-          b.x += dx * push; b.y += dy * push;
+      const cx = Math.floor(a.x * inv), cy = Math.floor(a.y * inv);
+      for (let gx = cx - 1; gx <= cx + 1; gx++) {
+        for (let gy = cy - 1; gy <= cy + 1; gy++) {
+          const arr = this.grid.map.get(this._gridKey(gx, gy));
+          if (!arr) continue;
+          for (let k = 0; k < arr.length; k++) {
+            const b = arr[k];
+            if (b._qi <= a._qi) continue; // 每对只处理一次
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const min = a.r + b.r - 6;
+            const d2 = dx * dx + dy * dy;
+            if (d2 === 0 || d2 >= min * min) continue; // 平方距离粗筛
+            const d = Math.sqrt(d2);
+            const push = (min - d) / d * 0.4;
+            a.x -= dx * push; a.y -= dy * push;
+            b.x += dx * push; b.y += dy * push;
+          }
         }
       }
     }

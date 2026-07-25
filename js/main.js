@@ -34,6 +34,7 @@ const Game = {
     this.canvas.width = Math.round(CONFIG.canvas.w * dpr);
     this.canvas.height = Math.round(CONFIG.canvas.h * dpr);
     this.dpr = dpr;
+    this._bloomGrad = null; // P0：渐变缓存，resize 时重建
   },
 
   start(classId) {
@@ -121,11 +122,15 @@ const Game = {
 
   applyBloom(ctx) {
     const W = CONFIG.canvas.w, H = CONFIG.canvas.h;
+    // P0：渐变对象缓存，避免每帧 createRadialGradient
+    if (!this._bloomGrad) {
+      const g = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.72);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,0.45)');
+      this._bloomGrad = g;
+    }
     ctx.save();
-    const g = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.72);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = g;
+    ctx.fillStyle = this._bloomGrad;
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   },
@@ -204,7 +209,7 @@ const Game = {
     this.state = 'dying';
     this.dyingT = 1.4;
     if (typeof SFX !== 'undefined') SFX.play('death');
-    Engine.addShake(12);
+    Engine.addShake(12, true); // P0：大震动通道
   },
 
   applyGoblinReward() {

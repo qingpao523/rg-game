@@ -10,10 +10,10 @@ const UI = {
   pauseBtn: { x: 672, y: 160, r: 26 },
   activeBtn: { x: 614, y: 1064, r: 56 },
 
-  reset() { this.toasts.length = 0; this.bannerState = null; this.redPulseT = 0; },
+  reset() { this.toasts.length = 0; this.bannerState = null; this.redPulseT = 0; this._redPulseDur = 0; },
   toast(msg) { this.toasts.push({ msg, t: 0, life: 3 }); if (this.toasts.length > 4) this.toasts.shift(); },
   banner(text, sub) { this.bannerState = { text, sub: sub || '', t: 0, life: 2.2 }; },
-  redPulse(dur) { this.redPulseT = dur; }, // 精英出场：屏幕红边脉冲
+  redPulse(dur) { this.redPulseT = dur; this._redPulseDur = dur; }, // 精英出场：屏幕红边脉冲
 
   update(dt) {
     for (let i = this.toasts.length - 1; i >= 0; i--) {
@@ -169,9 +169,13 @@ const UI = {
     // 经验条
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, 0, W, 10);
-    const eg = ctx.createLinearGradient(0, 0, W, 0);
-    eg.addColorStop(0, '#8a6a3a'); eg.addColorStop(1, '#f0d9a0');
-    ctx.fillStyle = eg;
+    // P0：渐变缓存，避免每帧 createLinearGradient
+    if (!this._expGrad) {
+      const eg = ctx.createLinearGradient(0, 0, W, 0);
+      eg.addColorStop(0, '#8a6a3a'); eg.addColorStop(1, '#f0d9a0');
+      this._expGrad = eg;
+    }
+    ctx.fillStyle = this._expGrad;
     ctx.fillRect(0, 0, W * Math.min(1, Player.exp / Player.expNeed), 10);
 
     // 头像
@@ -303,23 +307,32 @@ const UI = {
     this.drawGoblinArrow(ctx);
     this.drawBanner(ctx);
 
-    // 精英出场：屏幕红边脉冲
+    // 精英出场：屏幕红边脉冲（P1 修复：衰减时长与 redPulse(dur) 挂钩；P0：渐变缓存，透明度用 globalAlpha 控制）
     if (this.redPulseT > 0) {
-      const k = this.redPulseT / 1.5;
+      const k = this.redPulseT / (this._redPulseDur || 1.5);
       const a = (0.28 + Math.sin(Game.time * 18) * 0.12) * Math.min(1, k * 2.5);
-      const g = ctx.createRadialGradient(360, 640, 320, 360, 640, 740);
-      g.addColorStop(0, 'rgba(200,0,0,0)');
-      g.addColorStop(1, `rgba(220,30,30,${Math.max(0, a)})`);
-      ctx.fillStyle = g;
+      if (!this._redPulseGrad) {
+        const g = ctx.createRadialGradient(360, 640, 320, 360, 640, 740);
+        g.addColorStop(0, 'rgba(200,0,0,0)');
+        g.addColorStop(1, 'rgba(220,30,30,1)');
+        this._redPulseGrad = g;
+      }
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = this._redPulseGrad;
       ctx.fillRect(0, 0, W, CONFIG.canvas.h);
+      ctx.restore();
     }
 
-    // 低血量警告
+    // 低血量警告（P0：渐变缓存）
     if (Player.hp / Player.maxHp < 0.3) {
-      const g = ctx.createRadialGradient(360, 640, 380, 360, 640, 760);
-      g.addColorStop(0, 'rgba(160,0,0,0)');
-      g.addColorStop(1, 'rgba(160,0,0,0.35)');
-      ctx.fillStyle = g;
+      if (!this._lowHpGrad) {
+        const g = ctx.createRadialGradient(360, 640, 380, 360, 640, 760);
+        g.addColorStop(0, 'rgba(160,0,0,0)');
+        g.addColorStop(1, 'rgba(160,0,0,0.35)');
+        this._lowHpGrad = g;
+      }
+      ctx.fillStyle = this._lowHpGrad;
       ctx.fillRect(0, 0, W, CONFIG.canvas.h);
     }
   },
