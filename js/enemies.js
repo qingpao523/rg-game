@@ -123,7 +123,6 @@ const Enemies = {
     if (typeof SFX !== 'undefined') SFX.play(opts.crit ? 'crit' : 'hit');
     if (opts.crit) {
       FX.glow(e.x, e.y - e.r, 30, '#ffd75e', 0.1, 0.4);
-      if (typeof Game !== 'undefined') Game.hitstopFrames = Math.max(Game.hitstopFrames, 4);
     }
     if (e.hp <= 0) { this.kill(e); return true; }
     return false;
@@ -141,9 +140,13 @@ const Enemies = {
     this.kills++;
     FX.imgFx('effects/hit_effect.png', e.x, e.y - 20, e.r * 2.4, { life: 0.25 });
     Skills.onEnemyKilled(e);
+    // P3：hitstop 仅在精英击杀时触发（大事件才有顿帧感）
+    if (e.type === 'elite' && typeof Game !== 'undefined') {
+      Game.hitstopFrames = Math.max(Game.hitstopFrames, 6);
+      if (typeof SFX !== 'undefined') SFX.play('evolve');
+    }
     if (e.type === 'goblin') {
       this.drops.push({ kind: 'chest', x: e.x, y: e.y, v: 0, anim: 0 });
-      // P0：哥布林额外掉 2-3 个高价值经验碎片 + 1 个源质碎片
       const shards = M.randInt(2, 3);
       for (let i = 0; i < shards; i++) {
         this.drops.push({ kind: 'exp', x: e.x + M.rand(-24, 24), y: e.y + M.rand(-24, 24), v: 8, anim: M.rand(0, 5) });
@@ -159,12 +162,15 @@ const Enemies = {
           v: Math.ceil(e.exp / chunks), anim: M.rand(0, 5),
         });
       }
-      // P1 天赋：luck 精英概率掉碎片
+      // 精英额外掉落：碎片 + 概率血瓶
       if (e.type === 'elite') {
         const tb = Player.talentBonus;
         const shardChance = 0.3 + (tb && tb.luck ? tb.luck : 0);
         if (Math.random() < shardChance) {
           this.drops.push({ kind: 'shard', x: e.x + M.rand(-20, 20), y: e.y + M.rand(-20, 20), v: 1, anim: M.rand(0, 5) });
+        }
+        if (Math.random() < 0.25) {
+          this.drops.push({ kind: 'heal', x: e.x + M.rand(-20, 20), y: e.y + M.rand(-20, 20), v: 30, anim: M.rand(0, 5) });
         }
       }
     }
@@ -196,10 +202,12 @@ const Enemies = {
     if (type === 'goblin') {
       this.goblin = this.list[this.list.length - 1];
       UI.toast('宝藏哥布林现身！拦截它');
+      if (typeof SFX !== 'undefined') SFX.play('goblin');
     }
     if (type === 'elite') {
       const ne = this.list[this.list.length - 1];
       FX.ring(ne.x, ne.y, 30, 130, '#ff5a3c', 1.2, 5); // 出生点符文预警圈
+      if (typeof SFX !== 'undefined') SFX.play('elite');
     }
   },
 
@@ -450,10 +458,14 @@ const Enemies = {
           if (typeof SFX !== 'undefined') SFX.play('pickup');
           if (typeof Storage !== 'undefined') {
             const sd = Storage.Load();
-            sd.gold = (sd.gold || 0) + 1;
+            sd.shards = (sd.shards || 0) + 1;
             Storage.Save(sd);
           }
           FX.text(Player.x, Player.y - 70, '+1 源质碎片', '#c9a86a', 15);
+        } else if (d.kind === 'heal') {
+          Player.heal(d.v);
+          if (typeof SFX !== 'undefined') SFX.play('pickup');
+          FX.text(Player.x, Player.y - 70, '+' + d.v + ' 生命', '#7dff9b', 15);
         } else {
           Game.applyGoblinReward();
         }
@@ -478,6 +490,16 @@ const Enemies = {
         ctx.lineWidth = 2;
         ctx.fillRect(-8, -8, 16, 16);
         ctx.strokeRect(-8, -8, 16, 16);
+        ctx.restore();
+      } else if (d.kind === 'heal') {
+        ctx.save();
+        ctx.fillStyle = '#7dff9b';
+        ctx.strokeStyle = '#2a8a4a';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y - 6, 12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x - 2, y - 12, 4, 12);
+        ctx.fillRect(x - 6, y - 8, 12, 4);
         ctx.restore();
       } else {
         ctx.save();

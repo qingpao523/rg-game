@@ -32,16 +32,14 @@ const Player = {
     this.maxHpBonus = 0;      // 生命祝福：技能提供的生命上限
     this.dead = false;
 
-    // P1：应用局外天赋加成
+    // P3 v2.0：应用局外天赋加成（百分比制）
     if (typeof Talents !== 'undefined') {
       const b = Talents.bonuses();
-      if (b.dmg) this.dmgMult += b.dmg;
-      if (b.hp) { this.maxHp += b.hp; this.hp = this.maxHp; }
-      if (b.speed) this.speed *= 1 + b.speed;
-      if (b.pickup) this.pickup *= 1 + b.pickup;
-      if (b.manaRegen) this.manaRegen *= 1 + b.manaRegen;
-      if (b.mana) { this.maxMana += b.mana; this.mana = this.maxMana; }
-      if (b.armor) this.damageReduction += b.armor;
+      if (b.hpPct) { this.maxHp = Math.round(this.maxHp * (1 + b.hpPct)); this.hp = this.maxHp; }
+      if (b.speedPct) this.speed *= 1 + b.speedPct;
+      if (b.pickupPct) this.pickup *= 1 + b.pickupPct;
+      if (b.manaRegenPct) this.manaRegen *= 1 + b.manaRegenPct;
+      if (b.dmgReduction) this.damageReduction += b.dmgReduction;
       this.talentBonus = b;
     }
   },
@@ -75,10 +73,10 @@ const Player = {
     this.iframes = Math.max(0, this.iframes - dt);
     this.flash = Math.max(0, this.flash - dt);
 
-    // P1 天赋：regen 每秒回血
+    // P3 v2.0 天赋：regenPct 每秒回复最大生命百分比
     const tb = this.talentBonus;
-    if (tb && tb.regen && this.hp < this.maxHp && this.hp > 0) {
-      this.hp = Math.min(this.maxHp, this.hp + tb.regen * dt);
+    if (tb && tb.regenPct && this.hp < this.maxHp && this.hp > 0) {
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * tb.regenPct * dt);
     }
 
     if (this.shield) {

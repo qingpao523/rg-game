@@ -312,6 +312,72 @@ const Skills = {
     FX.ring(Player.x, Player.y, 20, d.burstRadius, '#b8c7d9', 0.4, 4);
   },
 
+  // ---------- P3 新增行为：冰锥术（穿透+减速） ----------
+  bh_ice_shard(s, c, d, dt) {
+    s.t -= dt;
+    if (s.t > 0) return;
+    const targets = this._getTargets(d.count, 620);
+    if (!targets.length) { s.t = 0.2; return; }
+    s.t = d.cd * Player.cdMult;
+    targets.forEach((e, i) => {
+      const ang = Math.atan2(e.y - Player.y, e.x - Player.x) + (i - (targets.length - 1) / 2) * 0.22;
+      this.spawnProj({
+        img: c.projectile, x: Player.x, y: Player.y - 50, speed: 480,
+        vx: Math.cos(ang) * 480, vy: Math.sin(ang) * 480,
+        dmg: d.dmg, r: 12, pierce: d.pierce, slow: d.slow, life: 2.5, h: 40,
+        color: '#aee6ff',
+      });
+    });
+  },
+
+  // ---------- P3 新增行为：雷暴云（跟随雷云，周期电击） ----------
+  bh_thunder_storm(s, c, d, dt) {
+    if (this.stormCloud) {
+      this.stormCloud.t += dt;
+      this.stormCloud.zap -= dt;
+      if (this.stormCloud.zap <= 0) {
+        const e = Enemies.randomIn(Player.x, Player.y, d.radius);
+        if (e) {
+          this.stormCloud.zap = d.interval;
+          FX.bolt(Player.x, Player.y - 160, e.x, e.y - 20, '#9fd8ff', 0.15);
+          Enemies.hurt(e, d.dmg, { color: '#9fd8ff' });
+          this.addShock(e, 1, 3);
+        }
+      }
+      if (this.stormCloud.t >= d.dur) this.stormCloud = null;
+      return;
+    }
+    s.t -= dt;
+    if (s.t > 0) return;
+    s.t = d.cd * Player.cdMult;
+    this.stormCloud = { t: 0, dur: d.dur, zap: 0 };
+    FX.ring(Player.x, Player.y - 140, 10, 60, '#9fd8ff', 0.4, 3);
+  },
+
+  // ---------- P3 新增行为：石魔像（高生命召唤物，嘲讽） ----------
+  bh_stone_golem(s, c, d, dt) {
+    s.t -= dt;
+    if (s.t > 0) return;
+    const tb = Player.talentBonus;
+    const cap = d.max + (tb && tb.summonCapPlus ? tb.summonCapPlus : 0);
+    const n = this.summons.filter(u => u.kind === 'golem').length;
+    if (n >= cap) { s.t = 0.5; return; }
+    s.t = d.cd * Player.cdMult;
+    const em = this.enhanceMult() * Player.summonMult;
+    const hpMult = tb && tb.summonHp ? 1 + tb.summonHp : 1;
+    const a = M.rand(0, Math.PI * 2);
+    this.summons.push({
+      kind: 'golem', tag: 0,
+      x: Player.x + Math.cos(a) * 60, y: Player.y + Math.sin(a) * 60,
+      hp: Math.round(d.hp * em * hpMult), maxHp: Math.round(d.hp * em * hpMult),
+      dmg: d.dmg * em, range: 0, r: 28, atkCd: 0, flash: 0, anim: M.rand(0, 5), pulse: 0,
+      buffMult: 1, buffT: 0, faceX: 1, dead: false,
+      tauntR: d.tauntR, tauntT: 0,
+    });
+    FX.ring(Player.x, Player.y, 10, 70, '#c9a86a', 0.4, 4);
+    FX.text(Player.x, Player.y - 90, '石魔像', '#c9a86a', 18);
+  },
+
   bh_passive() {},
 
   // ---------- 行为：钢铁皮肤（被动减伤，与 armor 加算，Player.hurt 内封顶 30%） ----------
@@ -354,6 +420,20 @@ const Skills = {
       }
     }
     Engine.addShake(4);
+  },
+
+  // P3 元素反应：燃烧+冰霜=蒸汽爆炸
+  triggerSteam(e) {
+    if (!e || e.dead) return;
+    // 消耗燃烧和冻结/寒意，产生蒸汽爆炸
+    e.burnT = 0; e.burnDps = 0;
+    e.freezeT = 0; e.chillT = 0;
+    const dmg = Math.round(15 + Player.level * 2);
+    FX.ring(e.x, e.y, 10, 80, '#e8e8f0', 0.4, 5);
+    FX.imgFx('effects/frozen_field_vfx.png', e.x, e.y, 100, { life: 0.4, scale0: 0.6, scale1: 1.2, alpha0: 0.7 });
+    Enemies.areaDamage(e.x, e.y, 80, dmg, { color: '#e8e8f0', exclude: e });
+    if (typeof SFX !== 'undefined') SFX.play('evolve');
+    UI.toast('元素反应：蒸汽爆炸！');
   },
 
   // 技能获得/升级时的即时效果挂载（参考焚身爆/亡者复苏的被动 hook 方式）
@@ -418,6 +498,8 @@ const Skills = {
     if (Player.buffs.fire.t > 0) Enemies.hurt(e, Player.buffs.fire.dmg, { noAmp: true, color: '#ff9a3c' });
     if (Player.buffs.thunder.t > 0) this.addShock(e, 1, Player.buffs.thunder.lv);
     if (p.burn) this.applyBurn(e, p.burn.dps, p.burn.dur, p.burn.spread);
+    // P3：冰锥术减速
+    if (p.slow) { e.slowPct = Math.max(e.slowPct || 0, p.slow); e.slowT = Math.max(e.slowT || 0, 1.5); }
     if (p.doomAmp) { e.doomAmp = p.doomAmp; e.doomT = p.doomDur; }
     FX.imgFx('effects/hit_effect.png', p.x, p.y, 46, { life: 0.2, alpha0: 0.8 });
   },
@@ -440,6 +522,11 @@ const Skills = {
     e.shockT = CONFIG.status.shockDur + (tb && tb.shockDur ? tb.shockDur : 0);
   },
   applyBurn(e, dps, dur, spread) {
+    // P3 元素反应：对冻结/寒意敌人施加燃烧 → 蒸汽爆炸
+    if ((e.freezeT > 0 || (e.chillT || 0) >= 1) && e.burnT <= 0) {
+      this.triggerSteam(e);
+      return;
+    }
     e.burnDps = Math.max(e.burnDps || 0, dps);
     e.burnT = Math.max(e.burnT || 0, dur);
     e.burnSpread = spread || 0;
@@ -511,6 +598,8 @@ const Skills = {
           if (inside) {
             Enemies.hurt(e, z.dps * 0.5, { color: '#aee6ff' });
             e.slowPct = Math.max(e.slowPct || 0, z.slow + slowBonus); e.slowT = 0.6;
+            // P3 元素反应：对燃烧敌人施加冰霜 → 蒸汽爆炸
+            if (e.burnT > 0) { this.triggerSteam(e); continue; }
             e.chillT = (e.chillT || 0) + 0.5;
             if (e.chillT >= 2 && !(e.freezeT > 0)) {
               e.freezeT = CONFIG.status.freezeDur[z.lv - 1] + freezeDurBonus;
@@ -742,6 +831,7 @@ const Skills = {
       this.owned.push({ id: ch.id, lv: 1, t: 0, idle: 0 });
       this.evoCount++;
       if (typeof SFX !== 'undefined') SFX.play('evolve');
+      if (typeof Game !== 'undefined') Game.hitstopFrames = Math.max(Game.hitstopFrames, 8);
       UI.toast('高危处置方案解锁：' + ev.name);
       FX.imgFx('effects/upgrade_effect.png', Player.x, Player.y - 60, 220, { life: 0.8, scale0: 0.6, scale1: 1.4 });
     } else if (ch.type === 'stat') {
