@@ -206,8 +206,6 @@ const SkillDB = {
         levels: [{ cd: 12, shield: 30, dur: 4, slow: 0.25, freeze: 1.0 }, { cd: 12, shield: 45, dur: 4.5, slow: 0.30, freeze: 1.25 }, { cd: 11, shield: 60, dur: 5, slow: 0.35, freeze: 1.5 }, { cd: 11, shield: 75, dur: 5.5, slow: 0.40, freeze: 1.75 }, { cd: 10, shield: 95, dur: 6, slow: 0.45, freeze: 2.0 }] },
       ice_shard: { name: '冰锥术', flow: '冰霜流', behavior: 'ice_shard', desc: '发射穿透冰锥，命中减速', tags: ['冰霜', '投射', '控制'], projectile: 'projectiles/ice_shard.png', icon: 'icons/ice_shard.png',
         levels: [{ dmg: 10, cd: 1.8, count: 1, slow: 0.20, pierce: 2 }, { dmg: 14, cd: 1.7, count: 1, slow: 0.25, pierce: 2 }, { dmg: 18, cd: 1.6, count: 2, slow: 0.30, pierce: 3 }, { dmg: 22, cd: 1.5, count: 2, slow: 0.35, pierce: 3 }, { dmg: 28, cd: 1.4, count: 3, slow: 0.40, pierce: 4 }] },
-      thunder_storm: { name: '雷暴云', flow: '雷霆流', behavior: 'thunder_storm', desc: '召唤雷云跟随，持续电击随机敌人', tags: ['雷霆', '光环'], icon: 'icons/thunder_cloud.png',
-        levels: [{ dmg: 8, interval: 1.2, radius: 220, dur: 10 }, { dmg: 11, interval: 1.1, radius: 240, dur: 11 }, { dmg: 14, interval: 1.0, radius: 260, dur: 12 }, { dmg: 17, interval: 0.9, radius: 280, dur: 13 }, { dmg: 22, interval: 0.8, radius: 300, dur: 14 }] },
       stone_golem: { name: '石魔像', flow: '召唤流', behavior: 'stone_golem', desc: '召唤高生命石魔像，嘲讽周围敌人', tags: ['召唤', '防御'], icon: 'icons/holy_guardian.png',
         levels: [{ dmg: 8, hp: 120, cd: 12, max: 1, tauntR: 150 }, { dmg: 11, hp: 160, cd: 11, max: 1, tauntR: 170 }, { dmg: 14, hp: 200, cd: 10, max: 2, tauntR: 190 }, { dmg: 17, hp: 250, cd: 9, max: 2, tauntR: 210 }, { dmg: 22, hp: 320, cd: 8, max: 3, tauntR: 240 }] },
     };

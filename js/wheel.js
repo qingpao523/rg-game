@@ -61,12 +61,12 @@ const Wheel = {
     }
     this.result = WHEEL_ITEMS[idx];
 
-    // 计算目标角度：让指针停在选中格子中心
+    // 计算目标角度：让顶部指针（-π/2）正好停在选中格子中心
     const segAngle = (Math.PI * 2) / WHEEL_ITEMS.length;
     const segCenter = idx * segAngle + segAngle / 2;
-    // 转 5-7 整圈 + 停在目标
+    // 指针在顶部(-π/2)，格子中心需转到该位置：angle = -π/2 - segCenter，补足整圈保证正角度
     const spins = 5 + Math.random() * 2;
-    this.targetAngle = spins * Math.PI * 2 + (Math.PI * 2 - segCenter);
+    this.targetAngle = spins * Math.PI * 2 + (Math.PI * 1.5 - segCenter);
     this.speed = 12 + Math.random() * 4; // 初始角速度
     this.spinning = true;
     if (typeof SFX !== 'undefined') SFX.play('pickup');
