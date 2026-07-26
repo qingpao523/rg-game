@@ -18,18 +18,65 @@ const Assets = {
     return [...set];
   },
 
+  // 菜单关键资源前缀（这些先加载，加载完即可进入游戏，其余后台加载）
+  ESSENTIAL_PREFIXES: ['menu/', 'portraits/', 'ui/button', 'ui/class_select_card', 'ui/portrait_frame'],
+
+  _isEssential(path) {
+    return this.ESSENTIAL_PREFIXES.some(p => path.startsWith(p));
+  },
+
   loadAll(onProgress, onDone) {
     const list = this.buildManifest();
     this.total = list.length;
+    const essentialList = list.filter(p => this._isEssential(p));
+    const deferredList = list.filter(p => !this._isEssential(p));
+    this._essentialTotal = essentialList.length;
+
     let finished = 0;
-    const step = () => { finished++; this.loaded = finished; onProgress(finished, this.total); if (finished >= this.total) onDone(); };
-    for (const path of list) {
+    let essentialDone = 0;
+    let menuReady = false;
+    const TIMEOUT = 8000; // 单图加载超时兜底，防止某图挂起卡死在 98%
+
+    const step = (path, ok, isEssential) => {
+      finished++;
+      this.loaded = finished;
+      if (isEssential) {
+        essentialDone++;
+        onProgress(essentialDone, essentialList.length); // 进度条反映关键资源进度
+      }
+      // 关键资源全部就绪 → 立即进入游戏（不等其余资源）
+      if (!menuReady && essentialDone >= essentialList.length) {
+        menuReady = true;
+        onDone();
+      }
+    };
+
+    const loadOne = (path, isEssential) => {
       const img = new Image();
-      img.onload = step;
-      img.onerror = () => { this.failed.push(path); step(); };
+      let settled = false;
+      const settle = (ok) => {
+        if (settled) return;
+        settled = true;
+        if (!ok) this.failed.push(path);
+        step(path, ok, isEssential);
+      };
+      img.onload = () => settle(true);
+      img.onerror = () => settle(false);
+      // 超时兜底：图加载挂起时强制结束，避免卡死
+      img._timeout = setTimeout(() => settle(false), TIMEOUT);
+      img.addEventListener('load', () => clearTimeout(img._timeout));
+      img.addEventListener('error', () => clearTimeout(img._timeout));
       img.src = 'assets/' + path + '?v=' + (window.GAME_VERSION || '1');
       this.images[path] = img;
-    }
+    };
+
+    // 第一阶段：关键资源（菜单必需），加载完即可进入游戏
+    for (const path of essentialList) loadOne(path, true);
+    // 第二阶段：其余资源后台加载（不阻塞进入游戏）
+    for (const path of deferredList) loadOne(path, false);
+
+    // 兜底：即使关键资源超时，也保证最终能进入游戏
+    setTimeout(() => { if (!menuReady) { menuReady = true; onDone(); } }, TIMEOUT + 1000);
   },
 
   img(path) {
