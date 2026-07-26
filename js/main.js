@@ -217,6 +217,8 @@ const Game = {
   },
 
   update(dt) {
+    // 全局：每 5s 智能重试失败的资源（慢网/掉线加载失败的图，菜单与战斗都覆盖；仍在下载的不打断）
+    if ((this._assetRetryT = (this._assetRetryT || 0) + dt) > 5) { this._assetRetryT = 0; if (typeof Assets !== 'undefined') Assets.retryFailed(); }
     if (this.state === 'menu') { this.menuT += dt; UI.update(dt); if (typeof Wheel !== 'undefined') Wheel.update(dt); return; }
     if (this.state === 'wheel') { if (typeof Wheel !== 'undefined') Wheel.update(dt); UI.update(dt); return; }
     if (this.state === 'battle') {
