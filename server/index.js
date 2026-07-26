@@ -7,6 +7,15 @@ const { PlayerDB, RunDB, LBDB, SkillDB, ConfigDB, AnnouncementDB, AdminAuth, Sta
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_DIR = path.join(__dirname, 'admin');
+// 游戏根目录（server 的上一级），用于直接伺服游戏本体（index.html / js / assets）
+const GAME_ROOT = path.join(__dirname, '..');
+const GAME_TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+  '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav',
+};
 
 // ---------- 工具 ----------
 function json(res, code, data) {
@@ -49,6 +58,15 @@ function serveStatic(res, filePath, contentType) {
   } catch {
     res.writeHead(404); res.end('Not Found');
   }
+}
+
+// 伺服游戏本体静态文件（带路径穿越防护）
+function serveGame(res, pathname) {
+  const rel = path.normalize(decodeURIComponent(pathname)).replace(/^([.][.][/\\])+/, '');
+  const filePath = path.join(GAME_ROOT, rel);
+  if (!filePath.startsWith(GAME_ROOT)) { res.writeHead(403); return res.end('Forbidden'); }
+  const ext = path.extname(filePath).toLowerCase();
+  serveStatic(res, filePath, GAME_TYPES[ext] || 'application/octet-stream');
 }
 
 // ---------- 路由 ----------
@@ -436,6 +454,15 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(file);
     const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.png': 'image/png', '.json': 'application/json' };
     return serveStatic(res, path.join(ADMIN_DIR, file), types[ext] || 'application/octet-stream');
+  }
+
+  // 游戏本体静态文件（index.html / js / assets / docs / tools）
+  // 使 node server/index.js 成为完整部署：游戏 + API + 管理后台同源，远程访问不再依赖额外静态服务器
+  if (pathname === '/' || pathname === '/index.html') {
+    return serveGame(res, '/index.html');
+  }
+  if (pathname.startsWith('/js/') || pathname.startsWith('/assets/') || pathname.startsWith('/docs/') || pathname.startsWith('/tools/')) {
+    return serveGame(res, pathname);
   }
 
   // API 路由

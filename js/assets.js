@@ -84,6 +84,21 @@ const Assets = {
     return i && i.complete && i.naturalWidth > 0 ? i : null;
   },
 
+  // 资源是否已尘埃落定：加载成功 或 已失败/超时（失败的资源不再等待，避免软锁）
+  settled(path) {
+    return !!this.img(path) || this.failed.includes(path);
+  },
+
+  // 战斗关键资源是否就绪（地图背景 + 当前职业精灵 + 基础小怪）。
+  // 远程慢网下这些延迟资源可能未加载完，缺失时 drawSprite 会静默跳过导致黑屏，
+  // 因此进入战斗前需检查，未就绪时展示加载界面而非黑屏。
+  battleReady(classId) {
+    const c = CONFIG.classes[classId] || CONFIG.classes[CONFIG.classOrder[0]];
+    return this.settled('maps/broken_dragon_palace_bg.png')
+      && this.settled(c.idle)
+      && this.settled('enemies/grunt_move.png');
+  },
+
   // 白色剪影：受击闪白
   white(path) {
     if (this.whites[path]) return this.whites[path];
