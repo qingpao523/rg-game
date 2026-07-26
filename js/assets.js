@@ -2,9 +2,29 @@
 const Assets = {
   images: {},
   whites: {},
+  _embed: {}, // 内嵌资源（ASSETS_EMBED base64）的 Image 缓存
   loaded: 0,
   total: 0,
   failed: [],
+
+  // 内嵌路径清单（与 tools/embed_assets.js 一致）：这些资源走 base64，不发网络请求
+  EMBEDDED_PATHS: {
+    'maps/broken_dragon_palace_bg.png': 1, 'maps/black_fog_edge_overlay.png': 1,
+    'characters/taoist_idle.png': 1, 'characters/taoist_move.png': 1,
+    'characters/samurai_idle.png': 1, 'characters/samurai_move.png': 1,
+    'characters/pharaoh_idle.png': 1, 'characters/pharaoh_move.png': 1,
+    'characters/ice_witch_idle.png': 1, 'characters/ice_witch_move.png': 1,
+    'characters/crusader_idle.png': 1, 'characters/crusader_move.png': 1,
+    'enemies/grunt_move.png': 1, 'enemies/charger_move.png': 1, 'enemies/charger_charge.png': 1,
+    'enemies/elite_move.png': 1, 'enemies/goblin_run.png': 1,
+  },
+
+  _isEmbeddedPath(path) { return !!this.EMBEDDED_PATHS[path]; },
+
+  // 资源内嵌数据是否已就绪（ASSETS_EMBED 异步加载完成后才可用）
+  _isEmbedded(path) {
+    return typeof ASSETS_EMBED !== 'undefined' && !!ASSETS_EMBED[path];
+  },
 
   buildManifest() {
     const set = new Set(CONFIG.assetsExtra);
@@ -26,7 +46,8 @@ const Assets = {
   },
 
   loadAll(onProgress, onDone) {
-    const list = this.buildManifest();
+    // 已内嵌的资源（base64 随代码加载）一律不发网络请求，直接跳过
+    const list = this.buildManifest().filter(p => !this._isEmbeddedPath(p));
     this.total = list.length;
     const essentialList = list.filter(p => this._isEssential(p));
     const deferredList = list.filter(p => !this._isEssential(p));
@@ -80,6 +101,13 @@ const Assets = {
   },
 
   img(path) {
+    // 内嵌路径：走 base64（随代码加载），ASSETS_EMBED 未就绪时返回 null 等待，绝不回退网络
+    if (this._isEmbeddedPath(path)) {
+      if (!this._isEmbedded(path)) return null;
+      let e = this._embed[path];
+      if (!e) { e = new Image(); e.src = ASSETS_EMBED[path]; this._embed[path] = e; }
+      return (e.complete && e.naturalWidth > 0) ? e : null;
+    }
     const i = this.images[path];
     return i && i.complete && i.naturalWidth > 0 ? i : null;
   },

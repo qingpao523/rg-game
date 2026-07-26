@@ -21,7 +21,7 @@
 <canvas id="game"></canvas>
 <script>
   // ===== 版本号：每次发版只需改这里，浏览器自动拉取最新代码和资源 =====
-  window.GAME_VERSION = '1.1.5';
+  window.GAME_VERSION = '1.1.6';
 
   // 清除旧缓存（Cache Storage + Service Worker），避免旧版本残留
   try {
@@ -42,6 +42,15 @@
       document.head.appendChild(s);
     }
     loadNext();
+  })();
+
+  // 内嵌战斗资源数据（base64，较大）：异步并行加载，不阻塞顺序链与菜单出现。
+  // 加载完成后 Assets.img() 自动使用内嵌资源渲染战斗，远程不再依赖逐张图片请求。
+  (function () {
+    var s = document.createElement('script');
+    s.src = 'js/assets-data.js?v=' + window.GAME_VERSION;
+    s.async = true;
+    document.head.appendChild(s);
   })();
 </script>
 </body>
