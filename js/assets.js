@@ -96,13 +96,17 @@ const Assets = {
       && !!this.img('enemies/grunt_move.png');
   },
 
-  // 重新加载已失败/超时的资源。慢网超时的资源往往还能下完，404 的也值得重试一次。
-  // 进入战斗时与战斗中定期调用，配合 battleReady 的真实加载判断，最大化资源可用率。
+  // 重新加载已失败/超时的资源。只重试"真正失败"的（complete 但 naturalWidth=0 或没图）；
+  // 仍在下载（complete=false）的不打断，让它下完——慢网超时的图往往还在下，重试反而会重来。
   retryFailed() {
     if (!this.failed.length) return;
     const retry = this.failed.slice();
     this.failed = [];
-    for (const path of retry) this._reload(path);
+    for (const path of retry) {
+      const cur = this.images[path];
+      if (cur && !cur.complete) continue; // 仍在下载，不打断
+      this._reload(path);
+    }
   },
 
   _reload(path) {
