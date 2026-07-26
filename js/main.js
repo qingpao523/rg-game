@@ -217,6 +217,7 @@ const Game = {
     if (this.state === 'menu') { this.menuT += dt; UI.update(dt); if (typeof Wheel !== 'undefined') Wheel.update(dt); return; }
     if (this.state === 'wheel') { if (typeof Wheel !== 'undefined') Wheel.update(dt); UI.update(dt); return; }
     if (this.state === 'battle') {
+      if (!Assets.battleReady(this.classId)) return; // 战场资源未就绪：冻结逻辑，配合加载界面
       this.time += dt;
       Player.update(dt);
       Skills.update(dt);
@@ -264,6 +265,12 @@ const Game = {
     if (this.state === 'wheel') {
       UI.drawDeath(ctx);
       if (typeof Wheel !== 'undefined') Wheel.draw(ctx);
+      UI.drawToasts(ctx);
+      return;
+    }
+    // 战斗关键资源未就绪时显示加载界面，避免黑屏（远程慢网下延迟资源未加载完）
+    if (!Assets.battleReady(this.classId)) {
+      this.drawBattleLoading(ctx);
       UI.drawToasts(ctx);
       return;
     }
@@ -335,6 +342,20 @@ const Game = {
     ctx.font = '15px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('档案解封中 ' + Math.round(p * 100) + '%', 360, 660);
+  },
+
+  // 战斗资源加载界面（远程慢网下进战斗时显示，避免黑屏）
+  drawBattleLoading(ctx) {
+    UI.goldText(ctx, '战场加载中', 360, 580, 36);
+    const overall = Assets.total ? Math.min(1, Assets.loaded / Assets.total) : 1;
+    ctx.fillStyle = 'rgba(201,168,106,0.25)';
+    ctx.fillRect(210, 630, 300, 6);
+    ctx.fillStyle = '#c9a86a';
+    ctx.fillRect(210, 630, 300 * overall, 6);
+    ctx.fillStyle = 'rgba(200,200,210,0.7)';
+    ctx.font = '15px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('战斗资源载入 ' + Math.round(overall * 100) + '%', 360, 670);
   },
 
   tryOpenUpgrade() {

@@ -151,7 +151,10 @@ const Storage = {
   },
 
   // ---------- P2 服务端同步 ----------
-  SERVER_URL: 'http://localhost:3000',
+  // 服务端地址：http/https 访问时用同源地址（游戏由 node 服务器同源伺服，远程设备也能打到同一台服务器）；
+  // file:// 直接打开时回退 localhost:3000（本地开发）。绝不硬编码 localhost，否则远程设备会指向它自己。
+  SERVER_URL: (typeof location !== 'undefined' && (location.protocol === 'http:' || location.protocol === 'https:'))
+    ? location.origin : 'http://localhost:3000',
   _token: null,
 
   // 获取/生成稳定的玩家 ID（存本地，跨会话不变）
