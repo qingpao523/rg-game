@@ -140,16 +140,28 @@ const Enemies = {
     this.kills++;
     FX.imgFx('effects/hit_effect.png', e.x, e.y - 20, e.r * 2.4, { life: 0.25 });
     Skills.onEnemyKilled(e, source);
+    // 碎冰：冻结敌人死亡时碎裂，对周围造成 30%/60% 伤害（按自身最大生命）
+    const tb0 = Player.talentBonus;
+    if (tb0 && tb0.shatterOnDeath && e.freezeT > 0) {
+      const sdmg = Math.max(1, Math.round(e.maxHp * tb0.shatterOnDeath));
+      FX.imgFx('effects/frozen_field_vfx.png', e.x, e.y, e.r * 3, { life: 0.4, scale0: 0.5, scale1: 1.3, alpha0: 0.8 });
+      FX.ring(e.x, e.y, 10, 90, '#aee6ff', 0.35, 5);
+      this.areaDamage(e.x, e.y, 90, sdmg, { color: '#aee6ff', exclude: e });
+    }
     // P3：hitstop 仅在精英击杀时触发（大事件才有顿帧感）
     if (e.type === 'elite' && typeof Game !== 'undefined') {
       Game.hitstopFrames = Math.max(Game.hitstopFrames, 6);
       if (typeof SFX !== 'undefined') SFX.play('evolve');
     }
     if (e.type === 'goblin') {
+      const dr = CONFIG.drops || {};
+      const gMin = dr.goblinShardMin != null ? dr.goblinShardMin : 2;
+      const gMax = dr.goblinShardMax != null ? dr.goblinShardMax : 3;
+      const gExp = dr.goblinExpValue != null ? dr.goblinExpValue : 8;
       this.drops.push({ kind: 'chest', x: e.x, y: e.y, v: 0, anim: 0 });
-      const shards = M.randInt(2, 3);
+      const shards = M.randInt(gMin, gMax);
       for (let i = 0; i < shards; i++) {
-        this.drops.push({ kind: 'exp', x: e.x + M.rand(-24, 24), y: e.y + M.rand(-24, 24), v: 8, anim: M.rand(0, 5) });
+        this.drops.push({ kind: 'exp', x: e.x + M.rand(-24, 24), y: e.y + M.rand(-24, 24), v: gExp, anim: M.rand(0, 5) });
       }
       this.drops.push({ kind: 'shard', x: e.x + M.rand(-16, 16), y: e.y + M.rand(-16, 16), v: 1, anim: M.rand(0, 5) });
       this.goblin = null;
@@ -162,21 +174,42 @@ const Enemies = {
           v: Math.ceil(e.exp / chunks), anim: M.rand(0, 5),
         });
       }
-      // 精英额外掉落：碎片 + 概率血瓶
+      // 精英额外掉落：碎片 + 概率血瓶（读远程 drops 配置）
       if (e.type === 'elite') {
-        const tb = Player.talentBonus;
-        const shardChance = 0.3 + (tb && tb.luck ? tb.luck : 0);
+        const dr = CONFIG.drops || {};
+        const shardChance = dr.eliteShardChance != null ? dr.eliteShardChance : 0.3;
+        const healChance = dr.eliteHealChance != null ? dr.eliteHealChance : 0.25;
+        const healValue = dr.healValue != null ? dr.healValue : 30;
         if (Math.random() < shardChance) {
           this.drops.push({ kind: 'shard', x: e.x + M.rand(-20, 20), y: e.y + M.rand(-20, 20), v: 1, anim: M.rand(0, 5) });
         }
-        if (Math.random() < 0.25) {
-          this.drops.push({ kind: 'heal', x: e.x + M.rand(-20, 20), y: e.y + M.rand(-20, 20), v: 30, anim: M.rand(0, 5) });
+        if (Math.random() < healChance) {
+          this.drops.push({ kind: 'heal', x: e.x + M.rand(-20, 20), y: e.y + M.rand(-20, 20), v: healValue, anim: M.rand(0, 5) });
         }
       }
     }
   },
 
   // ---------- 生成 ----------
+  // 按 spawnWeight 权重抽选刷怪类型（支持自定义怪物；权重0=不参与常规刷怪）
+  _pickSpawnType() {
+    const W = CONFIG.waves;
+    // 候选：有 spawnWeight 且 >0 的怪物（内置怪默认权重：grunt 70、charger 30，冲锋兵需到指定波次）
+    const candidates = [];
+    for (const id in CONFIG.enemies) {
+      if (id === 'elite' || id === 'goblin') continue; // 精英/哥布林走独立刷新逻辑
+      const cfg = CONFIG.enemies[id];
+      let weight = cfg.spawnWeight != null ? cfg.spawnWeight : (id === 'grunt' ? 70 : id === 'charger' ? 30 : 0);
+      if (id === 'charger' && this.wave < W.chargerFromWave) weight = 0; // 冲锋兵未到波次
+      if (weight > 0) candidates.push({ id, weight });
+    }
+    if (!candidates.length) return 'grunt';
+    const total = candidates.reduce((s, c) => s + c.weight, 0);
+    let r = Math.random() * total;
+    for (const c of candidates) { r -= c.weight; if (r <= 0) return c.id; }
+    return candidates[candidates.length - 1].id;
+  },
+
   spawnAtEdge(type) {
     const cfg = CONFIG.enemies[type];
     const ang = M.rand(0, Math.PI * 2);
@@ -246,8 +279,7 @@ const Enemies = {
       this.spawnT = interval;
       const batch = Math.min(12, W.batchBase + Math.floor(this.wave * W.batchPerWave));
       for (let i = 0; i < batch; i++) {
-        const t = this.wave >= W.chargerFromWave && Math.random() < 0.3 ? 'charger' : 'grunt';
-        this.spawnAtEdge(t);
+        this.spawnAtEdge(this._pickSpawnType());
       }
     }
     this.eliteT -= dt;
@@ -438,11 +470,14 @@ const Enemies = {
   },
 
   updateDrops(dt) {
+    const tb = Player.talentBonus;
+    // 拾取之王：拾取范围 +50%（磁铁吸附半径）
+    const kingMult = tb && tb.pickupKing ? 1.5 : 1;
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
       d.anim += dt;
       const dd = M.dist(d.x, d.y, Player.x, Player.y);
-      const magnetR = d.kind === 'chest' ? Player.pickup * 0.7 : Player.pickup;
+      const magnetR = (d.kind === 'chest' ? Player.pickup * 0.7 : Player.pickup) * kingMult;
       if (dd < magnetR && dd > 1) {
         const sp = d.kind === 'chest' ? 300 : 460;
         d.x += (Player.x - d.x) / dd * sp * dt;
@@ -450,7 +485,10 @@ const Enemies = {
       }
       if (dd < 28) {
         if (d.kind === 'exp') {
-          const v = this.expDouble ? d.v * 2 : d.v;
+          const dr = CONFIG.drops || {};
+          const dblChance = dr.expDoubleChance != null ? dr.expDoubleChance : 0;
+          let v = this.expDouble ? d.v * 2 : d.v;
+          if (dblChance > 0 && Math.random() < dblChance) v *= 2; // 经验翻倍概率
           Player.gainExp(v);
           if (typeof SFX !== 'undefined') SFX.play('pickup');
           FX.text(Player.x, Player.y - 70, '+' + v + ' 经验', '#8fd3ff', 14);

@@ -16,6 +16,7 @@ const Skills = {
     this.zones.length = 0;
     this.summons.length = 0;
     this.cloud = null;
+    this.extraClouds = null;
   },
 
   hasSkill(id) { return this.owned.some(s => s.id === id); },
@@ -72,14 +73,27 @@ const Skills = {
     const targets = this._getTargets(d.count, 620);
     if (!targets.length) { s.t = 0.2; return; }
     s.t = d.cd * Player.cdMult;
+    this._missileVolley(c, d, targets, 1);
+    this.multiCast(() => this._missileVolley(c, d, targets, 0.6));
+  },
+  _missileVolley(c, d, targets, dmgScale) {
     targets.forEach((e, i) => {
       const ang = Math.atan2(e.y - Player.y, e.x - Player.x) + (i - (targets.length - 1) / 2) * 0.22;
       this.spawnProj({
         img: c.projectile, x: Player.x, y: Player.y - 50, speed: 520,
         vx: Math.cos(ang) * 520, vy: Math.sin(ang) * 520,
-        dmg: d.dmg, r: 14, homing: 6, target: e, life: 2.5, h: 44,
+        dmg: d.dmg * dmgScale, r: 14, homing: 6, target: e, life: 2.5, h: 44,
       });
     });
+  },
+
+  // 多重施法：攻击技能概率额外释放一次（60% 伤害）
+  multiCast(fn) {
+    const tb = Player.talentBonus;
+    if (tb && tb.multiCast && Math.random() < tb.multiCast) {
+      fn();
+      FX.text(Player.x, Player.y - 120, '多重施法', '#c9a86a', 15);
+    }
   },
 
   // P0 目标选取：单投射物锁定最近敌人，多投射物保持 nearestN 扇形
@@ -98,12 +112,30 @@ const Skills = {
     const targets = this._getTargets(d.count, 640);
     if (!targets.length) { s.t = 0.2; return; }
     s.t = d.cd * Player.cdMult;
+    this._fireballVolley(c, d, targets, 1);
+    this.multiCast(() => this._fireballVolley(c, d, targets, 0.6));
+  },
+  _fireballVolley(c, d, targets, dmgScale) {
+    const tb = Player.talentBonus;
+    // 焚天灭世：火球变 3 枚陨石（单发伤害 -30%），落点带燃烧
+    if (tb && tb.fireStorm) {
+      for (const e of targets) {
+        for (let i = 0; i < 3; i++) {
+          const ox = M.rand(-70, 70), oy = M.rand(-70, 70);
+          this.zones.push({
+            kind: 'telegraph', x: e.x + ox, y: e.y + oy, r: d.radius, t: 0, dur: 0.5 + i * 0.15,
+            dmg: Math.round(d.dmg * 0.7 * dmgScale), burnDps: 4, burnDur: 2,
+          });
+        }
+      }
+      return;
+    }
     for (const e of targets) {
       const ang = Math.atan2(e.y - Player.y, e.x - Player.x);
       this.spawnProj({
         img: c.projectile, x: Player.x, y: Player.y - 50, speed: 400,
         vx: Math.cos(ang) * 400, vy: Math.sin(ang) * 400,
-        dmg: d.dmg, r: 16, aoe: d.radius, life: 2.2, h: 52, spin: 3,
+        dmg: d.dmg * dmgScale, r: 16, aoe: d.radius, life: 2.2, h: 52, spin: 3, fire: true,
       });
     }
   },
@@ -113,8 +145,10 @@ const Skills = {
     s.t -= dt;
     if (s.t > 0) return;
     s.t = 0.3;
+    const tb = Player.talentBonus;
+    const radius = d.radius * (tb && tb.aoePct ? 1 + tb.aoePct : 1);
     for (const e of Enemies.list) {
-      if (!e.dead && M.dist(Player.x, Player.y, e.x, e.y) < d.radius) {
+      if (!e.dead && M.dist(Player.x, Player.y, e.x, e.y) < radius) {
         e.resDown = d.resDown; e.resDownT = 0.6;
       }
     }
@@ -144,7 +178,10 @@ const Skills = {
     const first = Enemies.nearest(Player.x, Player.y, 520);
     if (!first) { s.t = 0.25; return; }
     s.t = d.cd * Player.cdMult;
-    this.chainHit(Player.x, Player.y - 40, first, d.dmg, d.chains, d.decay, 220, null);
+    // 过载连锁：闪电连锁次数 +1/+2
+    const tb = Player.talentBonus;
+    const chains = d.chains + (tb && tb.chainPlus ? tb.chainPlus : 0);
+    this.chainHit(Player.x, Player.y - 40, first, d.dmg, chains, d.decay, 220, null);
   },
 
   chainHit(x, y, first, dmg, chains, decay, range, perHit) {
@@ -169,20 +206,41 @@ const Skills = {
     if (!e) { s.t = 0.25; return; }
     s.t = d.cd * Player.cdMult;
     const tb = Player.talentBonus;
-    const crit = Math.random() < (d.crit + (tb && tb.boltCrit ? tb.boltCrit : 0) + (tb && tb.crit ? tb.crit : 0));
+    // 万雷归宗：暴击率 +10%
+    const crit = Math.random() < (d.crit + (tb && tb.thunderAll ? 0.10 : 0));
     FX.bolt(e.x, e.y - 200, e.x, e.y, '#cfeaff', 0.22);
     FX.imgFx(crit ? 'effects/crit_effect.png' : 'effects/hit_effect.png', e.x, e.y - 30, 90, { life: 0.3 });
-    Enemies.hurt(e, Math.round(d.dmg * (tb && tb.thunderDmg ? 1 + tb.thunderDmg : 1)), { crit, color: '#cfeaff' });
+    Enemies.hurt(e, d.dmg, { crit, color: '#cfeaff' });
+    // 万雷归宗：命中后对全场感电敌人追加一次落雷（50% 伤害）
+    if (tb && tb.thunderAll) {
+      for (const se of Enemies.list) {
+        if (se.dead || se === e || !(se.shockT > 0)) continue;
+        FX.bolt(se.x, se.y - 180, se.x, se.y, '#b7e3ff', 0.18);
+        Enemies.hurt(se, Math.round(d.dmg * 0.5), { color: '#b7e3ff' });
+      }
+    }
   },
 
   // ---------- 行为：雷云 ----------
   bh_cloud(s, c, d, dt) {
+    const tb = Player.talentBonus;
+    const wrath = !!(tb && tb.thunderWrath);
     if (this.cloud) {
-      if (this.cloud.t >= this.cloud.dur) { this.cloud = null; s.idle = 3; }
+      // 雷霆之怒：雷暴云无限持续
+      if (!wrath && this.cloud.t >= this.cloud.dur) { this.cloud = null; this.extraClouds = null; s.idle = 3; }
       return;
     }
     s.idle = (s.idle || 0) - dt;
-    if (s.idle <= 0) this.cloud = { t: 0, dur: d.dur, zap: 0, dmg: d.dmg, radius: d.radius, interval: d.interval };
+    if (s.idle <= 0) {
+      this.cloud = { t: 0, dur: d.dur, zap: 0, dmg: d.dmg, radius: d.radius, interval: d.interval };
+      // 雷霆之怒：分裂 2 朵副云
+      if (wrath) {
+        this.extraClouds = [
+          { off: 150, x: Player.x + 150, y: Player.y, zap: 0.3, dmg: Math.round(d.dmg * 0.5), radius: d.radius * 0.7, interval: d.interval * 1.3 },
+          { off: -150, x: Player.x - 150, y: Player.y, zap: 0.6, dmg: Math.round(d.dmg * 0.5), radius: d.radius * 0.7, interval: d.interval * 1.3 },
+        ];
+      } else this.extraClouds = null;
+    }
   },
   updateCloud(dt) {
     const cl = this.cloud;
@@ -196,6 +254,21 @@ const Skills = {
       }
     }
     cl.x = Player.x;
+    // 雷霆之怒：副云跟随并放电
+    if (this.extraClouds) {
+      for (const ec of this.extraClouds) {
+        ec.x = Player.x + ec.off; ec.y = Player.y;
+        ec.zap -= dt;
+        if (ec.zap <= 0) {
+          const e2 = Enemies.randomIn(ec.x, ec.y, ec.radius);
+          if (e2) {
+            ec.zap = ec.interval;
+            FX.bolt(ec.x, ec.y - 130, e2.x, e2.y - 20, '#b7e3ff', 0.15);
+            Enemies.hurt(e2, ec.dmg, { color: '#b7e3ff' });
+          }
+        }
+      }
+    }
   },
 
   // ---------- 行为：麻痹领域 ----------
@@ -205,7 +278,9 @@ const Skills = {
     const e = Enemies.nearest(Player.x, Player.y, 420);
     if (!e) { s.t = 0.3; return; }
     s.t = d.cd * Player.cdMult;
-    this.zones.push({ kind: 'paralyze', x: e.x, y: e.y, r: d.radius, t: 0, dur: 3, tick: 0, dmg: d.dmg, slow: d.slow, stun: d.stun });
+    const tb = Player.talentBonus;
+    const radius = Math.round(d.radius * (tb && tb.aoePct ? 1 + tb.aoePct : 1));
+    this.zones.push({ kind: 'paralyze', x: e.x, y: e.y, r: radius, t: 0, dur: 3, tick: 0, dmg: d.dmg, slow: d.slow, stun: d.stun });
   },
 
   // ---------- 行为：燃烧咒 ----------
@@ -215,11 +290,15 @@ const Skills = {
     const e = Enemies.nearest(Player.x, Player.y, 560);
     if (!e) { s.t = 0.25; return; }
     s.t = d.cd * Player.cdMult;
+    this._curseShot(c, d, e, 1);
+    this.multiCast(() => this._curseShot(c, d, e, 0.6));
+  },
+  _curseShot(c, d, e, dmgScale) {
     const ang = Math.atan2(e.y - Player.y, e.x - Player.x);
     this.spawnProj({
       img: c.projectile, x: Player.x, y: Player.y - 50, speed: 460,
       vx: Math.cos(ang) * 460, vy: Math.sin(ang) * 460,
-      dmg: d.dmg, r: 14, life: 2, h: 46,
+      dmg: d.dmg * dmgScale, r: 14, life: 2, h: 46,
       burn: { dps: d.dps, dur: d.burnDur, spread: d.spread },
     });
   },
@@ -231,11 +310,21 @@ const Skills = {
     const e = Enemies.nearest(Player.x, Player.y, 520);
     if (!e) { s.t = 0.3; return; }
     s.t = d.cd * Player.cdMult;
+    const tb = Player.talentBonus;
     const ang = Math.atan2(e.y - Player.y, e.x - Player.x);
-    this.zones.push({
-      kind: 'wall', x: Player.x + Math.cos(ang) * 130, y: Player.y + Math.sin(ang) * 130,
-      ang: ang + Math.PI / 2, len: 230, halfW: d.radius / 2, t: 0, dur: d.dur, tick: 0, dmg: d.dmg,
-    });
+    const halfW = (d.radius / 2) * (tb && tb.aoePct ? 1 + tb.aoePct : 1);
+    // 焚天灭世：火墙缓慢移动并分裂 3 堵
+    const storm = !!(tb && tb.fireStorm);
+    const offsets = storm ? [-170, 0, 170] : [0];
+    const wx = Player.x + Math.cos(ang) * 130, wy = Player.y + Math.sin(ang) * 130;
+    for (const off of offsets) {
+      const ox = Math.cos(ang + Math.PI / 2) * off, oy = Math.sin(ang + Math.PI / 2) * off;
+      this.zones.push({
+        kind: 'wall', x: wx + ox, y: wy + oy,
+        ang: ang + Math.PI / 2, len: 230, halfW: halfW, t: 0, dur: d.dur, tick: 0, dmg: d.dmg,
+        moveAng: ang, moveSpd: storm ? 45 : 0,
+      });
+    }
   },
 
   // ---------- 行为：召唤 ----------
@@ -243,7 +332,8 @@ const Skills = {
     s.t -= dt;
     if (s.t > 0) return;
     const tb = Player.talentBonus;
-    const cap = d.max + (tb && tb.summonCap ? tb.summonCap : 0);
+    // 召唤大军：召唤物上限 +1/+2
+    const cap = d.max + (tb && tb.summonCapPlus ? tb.summonCapPlus : 0);
     const n = this.summons.filter(u => u.kind === 'melee').length;
     if (n >= cap) { s.t = 0.5; return; }
     s.t = d.cd * Player.cdMult;
@@ -260,12 +350,15 @@ const Skills = {
   spawnSkeleton(kind, dmg, hp, tag, range) {
     const tb = Player.talentBonus;
     const em = this.enhanceMult() * Player.summonMult;
-    const hpMult = tb && tb.summonHp ? 1 + tb.summonHp : 1;
+    // 不死军团：骷髅变将军/神射手
+    const army = !!(tb && tb.undeadArmy);
+    if (army && kind === 'melee') { dmg *= 1.6; hp *= 1.5; }
+    if (army && kind === 'archer') { dmg *= 1.6; range = (range || 250) * 1.3; }
     const a = M.rand(0, Math.PI * 2);
     this.summons.push({
       kind, tag: tag || 0,
       x: Player.x + Math.cos(a) * 60, y: Player.y + Math.sin(a) * 60,
-      hp: Math.round(hp * em * hpMult), maxHp: Math.round(hp * em * hpMult),
+      hp: Math.round(hp * em), maxHp: Math.round(hp * em),
       dmg: dmg * em, range: range || 0,
       r: 20, atkCd: 0, flash: 0, anim: M.rand(0, 5), pulse: 0,
       buffMult: 1, buffT: 0, faceX: 1, dead: false,
@@ -280,7 +373,9 @@ const Skills = {
     const e = Enemies.densest(Player.x, Player.y, 560) || Enemies.nearest(Player.x, Player.y, 560);
     if (!e) { s.t = 0.3; return; }
     s.t = d.cd * Player.cdMult;
-    this.zones.push({ kind: 'telegraph', x: e.x, y: e.y, r: d.radius, t: 0, dur: d.telegraph, dmg: d.dmg, burnDps: d.burnDps, burnDur: d.burnDur });
+    const tb = Player.talentBonus;
+    const radius = Math.round(d.radius * (tb && tb.aoePct ? 1 + tb.aoePct : 1));
+    this.zones.push({ kind: 'telegraph', x: e.x, y: e.y, r: radius, t: 0, dur: d.telegraph, dmg: d.dmg, burnDps: d.burnDps, burnDur: d.burnDur });
   },
 
   // ---------- 行为：进化 · 雷网审判 ----------
@@ -291,7 +386,10 @@ const Skills = {
     if (!first) { s.t = 0.25; return; }
     s.t = d.cd * Player.cdMult;
     FX.imgFx('effects/thunder_net_vfx.png', first.x, first.y - 20, 260, { life: 0.5, scale0: 0.6, scale1: 1.2 });
-    this.chainHit(Player.x, Player.y - 40, first, d.dmg, d.chains, 0, d.chainRange, (e) => {
+    // 过载连锁：连锁次数 +1/+2
+    const tb = Player.talentBonus;
+    const chains = d.chains + (tb && tb.chainPlus ? tb.chainPlus : 0);
+    this.chainHit(Player.x, Player.y - 40, first, d.dmg, chains, 0, d.chainRange, (e) => {
       this.addShock(e, d.shockStacks, 3);
     });
   },
@@ -303,12 +401,16 @@ const Skills = {
     const targets = Enemies.nearestN(Player.x, Player.y, 640, d.count);
     if (!targets.length) { s.t = 0.2; return; }
     s.t = d.cd * Player.cdMult;
+    this._doomStarVolley(d, targets, 1);
+    this.multiCast(() => this._doomStarVolley(d, targets, 0.6));
+  },
+  _doomStarVolley(d, targets, dmgScale) {
     targets.forEach((e, i) => {
       const ang = Math.atan2(e.y - Player.y, e.x - Player.x) + (i - (targets.length - 1) / 2) * 0.3;
       this.spawnProj({
         img: 'projectiles/magic_missile.png', x: Player.x, y: Player.y - 50, speed: 560,
         vx: Math.cos(ang) * 560, vy: Math.sin(ang) * 560,
-        dmg: d.dmg, r: 15, homing: 7, target: e, life: 2.6, h: 50,
+        dmg: d.dmg * dmgScale, r: 15, homing: 7, target: e, life: 2.6, h: 50,
         pierce: d.pierce, doomAmp: d.amp, doomDur: d.ampDur,
       });
     });
@@ -321,14 +423,18 @@ const Skills = {
     const army = this.summons.filter(u => u.tag === 1);
     if (army.length >= d.cap) { s.t = 0.5; return; }
     s.t = d.cd * Player.cdMult;
+    const tb = Player.talentBonus;
+    // 不死军团：军势骷髅同步升级为将军/神射手
+    const armyMult = tb && tb.undeadArmy ? 1.6 : 1;
+    const armyHpMult = tb && tb.undeadArmy ? 1.5 : 1;
     const em = (1 + d.buff) * Player.summonMult;
     for (let i = 0; i < 2 && army.length + i < d.cap; i++) {
       const kind = (army.length + i) % 3 === 2 ? 'archer' : 'melee';
       this.summons.push({
         kind, tag: 1,
         x: Player.x + M.rand(-70, 70), y: Player.y + M.rand(-70, 70),
-        hp: Math.round(d.hp * em), maxHp: Math.round(d.hp * em),
-        dmg: d.dmg * em, range: 260, r: 20, atkCd: 0, flash: 0,
+        hp: Math.round(d.hp * em * armyHpMult), maxHp: Math.round(d.hp * em * armyHpMult),
+        dmg: d.dmg * em * armyMult, range: 260, r: 20, atkCd: 0, flash: 0,
         anim: M.rand(0, 5), pulse: 0, buffMult: 1, buffT: 0, faceX: 1, dead: false,
       });
     }
@@ -343,13 +449,17 @@ const Skills = {
     const targets = this._getTargets(d.count, 620);
     if (!targets.length) { s.t = 0.2; return; }
     s.t = d.cd * Player.cdMult;
+    this._iceShardVolley(c, d, targets, 1);
+    this.multiCast(() => this._iceShardVolley(c, d, targets, 0.6));
+  },
+  _iceShardVolley(c, d, targets, dmgScale) {
     targets.forEach((e, i) => {
       const ang = Math.atan2(e.y - Player.y, e.x - Player.x) + (i - (targets.length - 1) / 2) * 0.22;
       this.spawnProj({
         img: c.projectile, x: Player.x, y: Player.y - 50, speed: 480,
         vx: Math.cos(ang) * 480, vy: Math.sin(ang) * 480,
-        dmg: d.dmg, r: 12, pierce: d.pierce, slow: d.slow, life: 2.5, h: 40,
-        color: '#aee6ff',
+        dmg: d.dmg * dmgScale, r: 12, pierce: d.pierce, slow: d.slow, life: 2.5, h: 40,
+        color: '#aee6ff', iceShard: true,
       });
     });
   },
@@ -364,12 +474,11 @@ const Skills = {
     if (n >= cap) { s.t = 0.5; return; }
     s.t = d.cd * Player.cdMult;
     const em = this.enhanceMult() * Player.summonMult;
-    const hpMult = tb && tb.summonHp ? 1 + tb.summonHp : 1;
     const a = M.rand(0, Math.PI * 2);
     this.summons.push({
       kind: 'golem', tag: 0,
       x: Player.x + Math.cos(a) * 60, y: Player.y + Math.sin(a) * 60,
-      hp: Math.round(d.hp * em * hpMult), maxHp: Math.round(d.hp * em * hpMult),
+      hp: Math.round(d.hp * em), maxHp: Math.round(d.hp * em),
       dmg: d.dmg * em, range: 0, r: 28, atkCd: 0, flash: 0, anim: M.rand(0, 5), pulse: 0,
       buffMult: 1, buffT: 0, faceX: 1, dead: false,
       tauntR: d.tauntR, tauntT: 0,
@@ -404,7 +513,10 @@ const Skills = {
     }
     if (s.t > 0) return;
     s.t = d.cd * Player.cdMult;
-    Player.shield = { hp: d.shield, t: d.dur, convert: 0, absorbed: 0, barrier: { freeze: d.freeze } };
+    // 不屈圣盾：护盾上限 +50%
+    const tb = Player.talentBonus;
+    const shieldHp = Math.round(d.shield * (tb && tb.unbreakableShield ? 1.5 : 1));
+    Player.shield = { hp: shieldHp, t: d.dur, convert: 0, absorbed: 0, barrier: { freeze: d.freeze } };
     FX.ring(Player.x, Player.y, 24, 110, '#aee6ff', 0.5, 5);
     FX.text(Player.x, Player.y - 110, '冰霜结界', '#aee6ff', 20);
   },
@@ -422,9 +534,10 @@ const Skills = {
     Engine.addShake(4);
   },
 
-  // P3 元素反应：燃烧+冰霜=蒸汽爆炸
+  // P3 元素反应：燃烧+冰霜=蒸汽爆炸（受 features.elementalReaction 门控）
   triggerSteam(e) {
     if (!e || e.dead) return;
+    if (CONFIG.features && CONFIG.features.elementalReaction === false) return; // 功能开关关闭
     // 消耗燃烧和冻结/寒意，产生蒸汽爆炸
     e.burnT = 0; e.burnDps = 0;
     e.freezeT = 0; e.chillT = 0;
@@ -468,6 +581,8 @@ const Skills = {
       p.x += p.vx * dt; p.y += p.vy * dt;
       p.rot = p.spin ? p.rot + p.spin * dt : Math.atan2(p.vy, p.vx);
       let dead = p.t >= p.life;
+      let hitKill = false;
+      const splitDmg = p.dmg; // projHit 可能清零爆炸弹伤害，先存一份供分裂用
       // P0：复用 Enemies 空间网格，只查同格 + 邻格敌人（40 = 最大敌人半径·精英），平方距离粗筛
       Enemies.forEachNear(p.x, p.y, p.r + 40, (e) => {
         if (dead || e.dead) return;
@@ -479,15 +594,37 @@ const Skills = {
         if (p.pierce > 0) {
           p.pierce--;
           (p.hitSet = p.hitSet || new Set()).add(e);
-        } else dead = true;
+        } else { dead = true; hitKill = true; }
       });
       if (dead) {
         if (p.aoe) this.explode(p.x, p.y, p.aoe, p.dmg, p.burn);
+        if (hitKill) this.projSplitRoll(p, splitDmg);
         this.projectiles.splice(i, 1);
       }
     }
   },
+  // 投射物分裂：命中后概率分裂 2 枚小弹（30% 伤害）
+  projSplitRoll(p, baseDmg) {
+    if (p.splitChild || p.summon) return;
+    const tb = Player.talentBonus;
+    if (!tb || !tb.projSplit || Math.random() >= tb.projSplit) return;
+    const dmg = (baseDmg || p.dmg) * 0.3;
+    if (dmg <= 0) return;
+    const base = Math.atan2(p.vy, p.vx);
+    for (const off of [-0.5, 0.5]) {
+      const a = base + off;
+      const sp = p.speed * 0.8;
+      this.spawnProj({
+        img: p.img, x: p.x, y: p.y, speed: sp,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        dmg: dmg, r: Math.max(6, p.r * 0.6), life: 0.8, h: Math.round(p.h * 0.6),
+        splitChild: true, color: p.color,
+      });
+    }
+  },
   projHit(p, e) {
+    const tb = Player.talentBonus;
+    const origDmg = p.dmg;
     if (p.aoe) {
       // 爆炸弹：直接命中伤害并入 AoE，避免双倍
       this.explode(p.x, p.y, p.aoe, p.dmg, p.burn);
@@ -501,6 +638,27 @@ const Skills = {
     // P3：冰锥术减速
     if (p.slow) { e.slowPct = Math.max(e.slowPct || 0, p.slow); e.slowT = Math.max(e.slowT || 0, 1.5); }
     if (p.doomAmp) { e.doomAmp = p.doomAmp; e.doomT = p.doomDur; }
+    // 灼热大地：火焰技能命中后地面留燃烧区 2s（20%/40% 伤害）
+    if (tb && tb.fireGround && (p.fire || p.burn) && origDmg > 0 && !p.splitChild) {
+      this.zones.push({
+        kind: 'fire_ground', x: e.x, y: e.y, r: 70, t: 0, dur: 2, tick: 0,
+        dmg: Math.max(1, Math.round(origDmg * tb.fireGround)),
+      });
+    }
+    // 冰晶风暴：冰锥术命中后分裂 5 枚冰晶追踪最近敌人
+    if (tb && tb.crystalStorm && p.iceShard && !p.splitChild && origDmg > 0) {
+      for (let i = 0; i < 5; i++) {
+        const a = (Math.PI * 2 / 5) * i;
+        const t2 = Enemies.nearest(p.x, p.y, 520, new Set([e]));
+        this.spawnProj({
+          img: p.img, x: p.x, y: p.y, speed: 420,
+          vx: Math.cos(a) * 420, vy: Math.sin(a) * 420,
+          dmg: Math.max(1, Math.round(origDmg * 0.3)), r: 8, homing: 8, target: t2,
+          life: 1.2, h: 26, splitChild: true, color: '#aee6ff', slow: 0.2,
+        });
+      }
+      FX.imgFx('effects/ice_thorn_storm_vfx.png', p.x, p.y, 130, { life: 0.4, scale0: 0.5, scale1: 1.2 });
+    }
     FX.imgFx('effects/hit_effect.png', p.x, p.y, 46, { life: 0.2, alpha0: 0.8 });
   },
   explode(x, y, radius, dmg, burn) {
@@ -515,11 +673,16 @@ const Skills = {
     // P0：火球爆炸震动删除（~1 次/秒过于频繁，命中特效已足够）
   },
 
-  addShock(e, stacks, lv) {
-    const tb = Player.talentBonus;
+  addShock(e, stacks, lv, noSpread) {
     e.shockStacks = Math.min(3, (e.shockStacks || 0) + stacks);
     e.shockAmp = CONFIG.status.shockAmp[M.clamp(lv, 1, 5) - 1];
-    e.shockT = CONFIG.status.shockDur + (tb && tb.shockDur ? tb.shockDur : 0);
+    e.shockT = CONFIG.status.shockDur;
+    // 感电扩散：感电触发时对周围 1/2 个敌人也施加感电（仅一跳）
+    const tb = Player.talentBonus;
+    if (!noSpread && tb && tb.shockSpread) {
+      const near = Enemies.nearestN(e.x, e.y, 180, tb.shockSpread + 1).filter(n => n !== e);
+      for (const n of near) this.addShock(n, stacks, lv, true);
+    }
   },
   applyBurn(e, dps, dur, spread) {
     // P3 元素反应：对冻结/寒意敌人施加燃烧 → 蒸汽爆炸
@@ -537,6 +700,7 @@ const Skills = {
     for (let i = this.zones.length - 1; i >= 0; i--) {
       const z = this.zones[i];
       z.t += dt;
+      if (z.t < 0) continue; // 冰河时代：延迟生效的新星
       if (z.kind === 'telegraph') {
         if (z.t >= z.dur) {
           FX.imgFx('effects/meteor_vfx.png', z.x, z.y, z.r * 2.4, { life: 0.5, scale0: 0.7, scale1: 1.3 });
@@ -550,6 +714,11 @@ const Skills = {
         continue;
       }
       if (z.t >= z.dur) { this.zones.splice(i, 1); continue; }
+      // 焚天灭世：火墙缓慢移动
+      if (z.kind === 'wall' && z.moveSpd) {
+        z.x += Math.cos(z.moveAng) * z.moveSpd * dt;
+        z.y += Math.sin(z.moveAng) * z.moveSpd * dt;
+      }
       if (z.kind === 'spring') {
         // P3 源质泉：站上 3 秒汲取 50 经验
         if (!z.given) {
@@ -587,24 +756,57 @@ const Skills = {
             this.applyBurn(e, 4, 2, 0);
           }
         }
+      } else if (z.kind === 'fire_ground') {
+        // 灼热大地：燃烧区，总伤害均摊到每次 tick
+        const tickDmg = Math.max(1, Math.round(z.dmg * 0.5 / z.dur));
+        for (const e of Enemies.list) {
+          if (e.dead || M.dist(z.x, z.y, e.x, e.y) > z.r + e.r) continue;
+          Enemies.hurt(e, tickDmg, { color: '#ff9a3c' });
+          this.applyBurn(e, Math.max(2, tickDmg), 1.5, 0);
+        }
+      } else if (z.kind === 'slash_trail') {
+        // 剑气残留：沿路径线段的剑气伤害，总伤害均摊到每次 tick
+        const ca = Math.cos(z.ang), sa = Math.sin(z.ang);
+        const x1 = z.x - ca * z.len / 2, y1 = z.y - sa * z.len / 2;
+        const x2 = z.x + ca * z.len / 2, y2 = z.y + sa * z.len / 2;
+        const tickDmg = Math.max(1, Math.round(z.dmg * 0.5 / z.dur));
+        for (const e of Enemies.list) {
+          if (e.dead) continue;
+          if (M.segDist(e.x, e.y, x1, y1, x2, y2) < z.halfW + e.r) {
+            Enemies.hurt(e, tickDmg, { color: '#ffe9a8' });
+          }
+        }
+      } else if (z.kind === 'holy') {
+        // 神圣领域：圣光区域持续伤害 + 减速
+        for (const e of Enemies.list) {
+          if (e.dead || M.dist(z.x, z.y, e.x, e.y) > z.r + e.r) continue;
+          Enemies.hurt(e, z.dmg, { color: '#ffe9a8' });
+          e.slowPct = Math.max(e.slowPct || 0, z.slow); e.slowT = 0.6;
+        }
       } else if (z.kind === 'frozen') {
         const tb = Player.talentBonus;
-        const slowBonus = tb && tb.slowPct ? tb.slowPct : 0;
-        const freezeDurBonus = tb && tb.freezeDur ? tb.freezeDur : 0;
-        const shatterMult = tb && tb.shatterDmg ? 1 + tb.shatterDmg : 1;
+        // 绝对零度：领域内敌人移速 -70%，冻结时间 +1s
+        const absolute = !!(tb && tb.absoluteZero);
+        const slowVal = absolute ? Math.max(z.slow, 0.70) : z.slow;
+        const freezeBonus = absolute ? 1 : 0;
         for (const e of Enemies.list) {
           if (e.dead) continue;
           const inside = M.dist(z.x, z.y, e.x, e.y) < z.r;
           if (inside) {
             Enemies.hurt(e, z.dps * 0.5, { color: '#aee6ff' });
-            e.slowPct = Math.max(e.slowPct || 0, z.slow + slowBonus); e.slowT = 0.6;
+            e.slowPct = Math.max(e.slowPct || 0, slowVal); e.slowT = 0.6;
             // P3 元素反应：对燃烧敌人施加冰霜 → 蒸汽爆炸
             if (e.burnT > 0) { this.triggerSteam(e); continue; }
-            e.chillT = (e.chillT || 0) + 0.5;
+            // 冰河时代：所有冰霜附带冻结累计（寒意累积加速）
+            e.chillT = (e.chillT || 0) + 0.5 + (z.iceAge ? 0.25 : 0);
+            // 永冻：寒意概率直接升级为冻结
+            if (tb && tb.instantFreeze && !(e.freezeT > 0) && Math.random() < tb.instantFreeze) {
+              e.chillT = Math.max(e.chillT, 2);
+            }
             if (e.chillT >= 2 && !(e.freezeT > 0)) {
-              e.freezeT = CONFIG.status.freezeDur[z.lv - 1] + freezeDurBonus;
+              e.freezeT = CONFIG.status.freezeDur[z.lv - 1] + freezeBonus;
               e.chillT = 0;
-              e.pendingShatter = Math.round(z.shatter * shatterMult);
+              e.pendingShatter = z.shatter;
             }
           } else e.chillT = 0;
         }
@@ -614,6 +816,9 @@ const Skills = {
 
   // ---------- 召唤物 ----------
   updateSummons(dt) {
+    const tb = Player.talentBonus;
+    // 骷髅精锐：召唤物攻击附带减速 10%/20%
+    const summonSlow = tb && tb.summonSlow ? tb.summonSlow : 0;
     for (let i = this.summons.length - 1; i >= 0; i--) {
       const u = this.summons[i];
       if (u.dead || u.hp <= 0) { this.killSummon(u); this.summons.splice(i, 1); continue; }
@@ -639,6 +844,9 @@ const Skills = {
         if (e && dd < e.r + 34 && u.atkCd <= 0) {
           u.atkCd = 0.8; u.pulse = 1;
           Enemies.hurt(e, u.dmg * u.buffMult, { color: '#b8c7d9', summon: true });
+          if (summonSlow && !e.dead) {
+            e.slowPct = Math.max(e.slowPct || 0, summonSlow); e.slowT = Math.max(e.slowT || 0, 1.5);
+          }
         }
       } else { // archer
         if (e) {
@@ -655,6 +863,7 @@ const Skills = {
               img: 'projectiles/skeleton_arrow.png', x: u.x, y: u.y - 30, speed: 600,
               vx: Math.cos(ang) * 600, vy: Math.sin(ang) * 600,
               dmg: u.dmg * u.buffMult, r: 10, life: 1.5, h: 34, summon: true,
+              slow: summonSlow || 0,
             });
           }
         } else {
@@ -673,10 +882,25 @@ const Skills = {
 
   killSummon(u) {
     const s = this.getSkill('taoist_corpse_burst');
+    const tb = Player.talentBonus;
+    // 亡者献祭：召唤物死亡爆炸伤害 +50%/+100%
+    const sacMult = tb && tb.sacrificeDmg ? 1 + tb.sacrificeDmg : 1;
     if (s) {
       const d = this.lvData(s);
+      const dmg = Math.round(d.dmg * sacMult);
       FX.ring(u.x, u.y, 10, d.radius, '#b8c7d9', 0.35, 4);
-      Enemies.areaDamage(u.x, u.y, d.radius, d.dmg, { color: '#b8c7d9' });
+      Enemies.areaDamage(u.x, u.y, d.radius, dmg, { color: '#b8c7d9' });
+      // 亡者献祭：爆炸可触发元素反应（附加燃烧）
+      if (tb && tb.sacrificeReact) {
+        for (const e of Enemies.list) {
+          if (!e.dead && M.dist(u.x, u.y, e.x, e.y) < d.radius) this.applyBurn(e, Math.max(3, Math.round(dmg * 0.25)), 2, 0);
+        }
+      }
+    } else if (tb && tb.sacrificeDmg) {
+      // 无尸爆技能时，献祭天赋仍提供基础死亡爆炸
+      const dmg = Math.round(10 * sacMult);
+      FX.ring(u.x, u.y, 10, 70, '#b8c7d9', 0.35, 4);
+      Enemies.areaDamage(u.x, u.y, 70, dmg, { color: '#b8c7d9' });
     }
   },
 
@@ -709,15 +933,24 @@ const Skills = {
         }
       }
     }
+    const tb = Player.talentBonus;
+    // 不死军团：击杀 25% 概率自动召唤骷髅
+    if (tb && tb.undeadArmy && e.type !== 'goblin' && Math.random() < 0.25 && this.summons.length < 10) {
+      this.spawnSkeleton(Math.random() < 0.5 ? 'melee' : 'archer', 6 + Player.level, 20 + Player.level * 3, 0, 260);
+      FX.text(e.x, e.y - 50, '军团', '#b8c7d9', 16);
+    }
     const rd = this.getSkill('taoist_raise_dead');
     if (rd && e.type !== 'goblin') {
       const d = this.lvData(rd);
-      const tb = Player.talentBonus;
-      let chance = d.chance + (tb && tb.raiseChance ? tb.raiseChance : 0);
+      let chance = d.chance;
+      // 亡者国度：亡者复苏概率 +20%
+      if (tb && tb.deadKingdom) chance = Math.min(1, chance + 0.20);
       // 召唤流滚雪球：召唤物击杀时复活概率翻倍
       if (source === 'summon') chance = Math.min(1, chance * 2);
       const risen = this.summons.filter(u => u.kind === 'risen').length;
-      if (risen < d.max && Math.random() < chance) {
+      // 亡者国度：复活骷髅永久存在（无数量上限）
+      const cap = tb && tb.deadKingdom ? Infinity : d.max;
+      if (risen < cap && Math.random() < chance) {
         const em = this.enhanceMult() * Player.summonMult;
         this.summons.push({
           kind: 'risen', tag: 0, x: e.x, y: e.y,
@@ -747,11 +980,12 @@ const Skills = {
   genChoices() {
     const out = [];
     const evos = [];
+    const evoReq = CONFIG._evoReq || { main: 5, catalyst: 3 };
     for (const eid in CONFIG.evolutions) {
       if (this.hasSkill(eid)) continue;
       const ev = CONFIG.evolutions[eid];
       const main = this.getSkill(ev.main), cat = this.getSkill(ev.catalyst);
-      if (main && main.lv >= 5 && cat && cat.lv >= 3) evos.push({ type: 'evo', id: eid });
+      if (main && main.lv >= evoReq.main && cat && cat.lv >= evoReq.catalyst) evos.push({ type: 'evo', id: eid });
     }
     if (evos.length) out.push(M.choice(evos));
 
@@ -896,6 +1130,33 @@ const Skills = {
           ctx.arc(x, y, z.r * 0.6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, z.stand / 3));
           ctx.stroke();
         }
+      } else if (z.kind === 'fire_ground') {
+        // 灼热大地：燃烧区
+        ctx.globalAlpha = 0.22 + Math.sin(z.t * 10) * 0.08;
+        ctx.fillStyle = '#ff7828';
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.5;
+        ctx.strokeStyle = '#ff9a3c';
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.stroke();
+      } else if (z.kind === 'slash_trail') {
+        // 剑气残留：金色斩击带
+        ctx.translate(x, y);
+        ctx.rotate(z.ang);
+        ctx.globalAlpha = Math.max(0, 0.5 * (1 - z.t / z.dur));
+        ctx.fillStyle = '#ffe9a8';
+        ctx.fillRect(-z.len / 2, -z.halfW * 0.5, z.len, z.halfW);
+        ctx.globalAlpha = Math.max(0, 0.8 * (1 - z.t / z.dur));
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-z.len / 2, -2, z.len, 4);
+      } else if (z.kind === 'holy') {
+        // 神圣领域：圣光区域
+        ctx.globalAlpha = 0.18 + Math.sin(z.t * 6) * 0.06;
+        ctx.fillStyle = '#ffe9a8';
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = '#ffe9a8';
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     }
@@ -919,6 +1180,12 @@ const Skills = {
     if (this.cloud) {
       const bob = Math.sin(Player.anim * 2.2) * 6;
       Assets.drawSprite(ctx, 'effects/thunder_cloud.png', Engine.SX(Player.x), Engine.SY(Player.y) - 130 + bob, 90, { alpha: 0.9 });
+      // 雷霆之怒：分裂的副云
+      if (this.extraClouds) {
+        for (const ec of this.extraClouds) {
+          Assets.drawSprite(ctx, 'effects/thunder_cloud.png', Engine.SX(ec.x), Engine.SY(ec.y) - 110 + bob * 0.7, 62, { alpha: 0.75 });
+        }
+      }
     }
   },
 

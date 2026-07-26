@@ -60,7 +60,13 @@ const Storage = {
   },
 
   // 经济重平衡：满级50需~30天（每日6局×8分钟）
-  expNeed(level) { return Math.floor(20 + level * 15 + level * level * 0.8); },
+  expNeed(level) {
+    const eco = (typeof CONFIG !== 'undefined' && CONFIG._remoteEconomy) || {};
+    const base = eco.expNeedBase != null ? eco.expNeedBase : 20;
+    const linear = eco.expNeedLinear != null ? eco.expNeedLinear : 15;
+    const quad = eco.expNeedQuad != null ? eco.expNeedQuad : 0.8;
+    return Math.floor(base + level * linear + level * level * quad);
+  },
 
   // 结算累加局外经验，升级 +1 通用点 +1 专精点
   addExp(amount) {
@@ -122,11 +128,16 @@ const Storage = {
     d.stats.bestTime = Math.max(d.stats.bestTime, report.time);
     d.stats.bestKills = Math.max(d.stats.bestKills, report.kills);
     d.stats.evos = (d.stats.evos || 0) + report.evoCount;
-    // 经济重平衡：让每局奖励"刚好差一点"
-    d.gold = (d.gold || 0) + Math.round(report.kills * 0.1 + report.time * 0.05);
+    // 结算公式读远程 settlement 配置（回退默认值）
+    const st = (typeof CONFIG !== 'undefined' && CONFIG._remoteSettlement) || {};
+    const goldPerKill = st.goldPerKill != null ? st.goldPerKill : 0.1;
+    const goldPerSecond = st.goldPerSecond != null ? st.goldPerSecond : 0.05;
+    const expPerKill = st.expPerKill != null ? st.expPerKill : 0.3;
+    const expPerSecond = st.expPerSecond != null ? st.expPerSecond : 0.5;
+    d.gold = (d.gold || 0) + Math.round(report.kills * goldPerKill + report.time * goldPerSecond);
     d.shards = (d.shards || 0) + (report.shards || 0);
     this.Save(d);
-    const expGain = Math.round(report.kills * 0.3 + report.time * 0.5);
+    const expGain = Math.round(report.kills * expPerKill + report.time * expPerSecond);
     const r = this.addExp(expGain);
     if (r.ups > 0 && typeof UI !== 'undefined') {
       UI.toast('局外等级提升！通用+专精天赋点各 +1');
@@ -188,6 +199,11 @@ const Storage = {
 
   async _reportToServer(report) {
     if (!this._token) return; // 未登录不阻塞
+    const st = (typeof CONFIG !== 'undefined' && CONFIG._remoteSettlement) || {};
+    const expPerKill = st.expPerKill != null ? st.expPerKill : 0.3;
+    const expPerSecond = st.expPerSecond != null ? st.expPerSecond : 0.5;
+    const goldPerKill = st.goldPerKill != null ? st.goldPerKill : 0.1;
+    const goldPerSecond = st.goldPerSecond != null ? st.goldPerSecond : 0.05;
     try {
       fetch(this.SERVER_URL + '/api/run/complete', {
         method: 'POST',
@@ -198,8 +214,8 @@ const Storage = {
           kills: report.kills, evolutions: report.evoCount,
           skills: (report.build || []).map(b => b.name),
           flow: report.flow || '',
-          exp_earned: Math.round(report.kills * 0.3 + report.time * 0.5),
-          gold_earned: Math.round(report.kills * 0.1 + report.time * 0.05),
+          exp_earned: Math.round(report.kills * expPerKill + report.time * expPerSecond),
+          gold_earned: Math.round(report.kills * goldPerKill + report.time * goldPerSecond),
           shards_earned: report.shards || 0,
         }),
       }).catch(() => {}); // 静默失败，不影响本地

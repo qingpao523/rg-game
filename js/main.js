@@ -29,44 +29,149 @@ const Game = {
   // S5：启动时拉取远程配置覆盖本地 CONFIG（静默失败，不影响单机）
   async fetchRemoteConfig() {
     const SERVER = (typeof Storage !== 'undefined' && Storage.SERVER_URL) || 'http://localhost:3000';
+    this._configServer = SERVER;
     // 先登录服务端（拿到 token，后续上报对局/同步存档才能生效）
     if (typeof Storage !== 'undefined') { await Storage.loginToServer(); }
     try {
       const res = await fetch(SERVER + '/api/config/game');
       const { config, skills } = await res.json();
       if (config) {
-        // 覆盖经济参数
-        if (config.economy) {
-          CONFIG._remoteEconomy = config.economy;
-        }
-        // 覆盖波次参数
-        if (config.waves) Object.assign(CONFIG.waves, config.waves);
-        // 覆盖功能开关
-        if (config.features) CONFIG.features = config.features;
-        // 覆盖掉落参数
-        if (config.drops) CONFIG._remoteDrops = config.drops;
+        this._applyRemoteConfig(config, skills);
+        // 缓存到 localStorage（离线兜底）
+        try { localStorage.setItem('rg_h5_remote_config', JSON.stringify({ version: config.version, config, skills, ts: Date.now() })); } catch (e) {}
+        this._remoteVersion = config.version;
         console.log('[config] 远程配置已加载 v' + config.version);
-      }
-      // 远程技能定义覆盖本地（管理后台编辑的技能）
-      if (skills && Object.keys(skills).length > 0) {
-        for (const [id, s] of Object.entries(skills)) {
-          if (CONFIG.skills[id]) {
-            Object.assign(CONFIG.skills[id], { name: s.name, desc: s.desc, flow: s.flow, tags: s.tags, levels: s.levels });
-            if (s.icon) CONFIG.skills[id].icon = s.icon;
-            if (s.projectile) CONFIG.skills[id].projectile = s.projectile;
-          }
-        }
-        console.log('[config] 远程技能定义已合并');
       }
       // 拉取公告
       const annRes = await fetch(SERVER + '/api/announcement');
       const { announcements } = await annRes.json();
       if (announcements && announcements.length > 0) {
-        this.announcement = announcements[0]; // 显示最新一条
+        this.announcement = announcements[0];
       }
     } catch (e) {
-      console.warn('[config] 远程配置拉取失败，使用本地默认值:', e.message);
+      // 服务端不可达：使用最后一次成功的缓存（而非硬编码默认值）
+      try {
+        const cached = JSON.parse(localStorage.getItem('rg_h5_remote_config'));
+        if (cached && cached.config) {
+          this._applyRemoteConfig(cached.config, cached.skills);
+          this._remoteVersion = cached.version;
+          console.warn('[config] 离线模式：使用缓存配置 v' + cached.version);
+          if (typeof UI !== 'undefined') UI.toast('离线模式：使用缓存配置 v' + cached.version);
+        } else {
+          console.warn('[config] 远程配置拉取失败，使用本地默认值:', e.message);
+        }
+      } catch (e2) {
+        console.warn('[config] 远程配置拉取失败，使用本地默认值:', e.message);
+      }
     }
+    // 启动 60s 版本轮询
+    this._startConfigPolling();
+  },
+
+  // 应用远程配置到 CONFIG（全量消费点）
+  _applyRemoteConfig(config, skills) {
+    // 客户端兜底校验：越界值单字段回退默认值
+    const clamp = (v, min, max, def) => { const n = parseFloat(v); if (isNaN(n)) return def; if (n < min) { console.warn('[config] 值越界回退:', v, '->', def); return def; } if (n > max) { console.warn('[config] 值越界回退:', v, '->', def); return def; } return n; };
+
+    // 玩家基础属性
+    if (config.player) {
+      CONFIG.player.hp = clamp(config.player.hp, 1, 99999, 120);
+      CONFIG.player.speed = clamp(config.player.speed, 10, 2000, 230);
+      CONFIG.player.pickup = clamp(config.player.pickup, 10, 2000, 110);
+      CONFIG.player.hurtCd = clamp(config.player.hurtCd, 0, 10, 0.5);
+      if (config.player.drawH != null) CONFIG.player.drawH = clamp(config.player.drawH, 10, 1000, 118);
+    }
+    // 局内经验曲线
+    if (config.playerExp) CONFIG._remotePlayerExp = config.playerExp;
+    // 局外经济
+    if (config.economy) CONFIG._remoteEconomy = config.economy;
+    if (config.settlement) CONFIG._remoteSettlement = config.settlement;
+    // 波次参数
+    if (config.waves) Object.assign(CONFIG.waves, config.waves);
+    // 功能开关
+    if (config.features) CONFIG.features = config.features;
+    // 掉落参数（合并默认值，避免缺字段）
+    if (config.drops) CONFIG.drops = Object.assign({}, CONFIG.drops, config.drops);
+    // 怪物定义（逐怪深合并 + 支持删除同步 + spawnWeight）
+    if (config.enemies) {
+      for (const id in config.enemies) {
+        if (CONFIG.enemies[id]) Object.assign(CONFIG.enemies[id], config.enemies[id]);
+        else CONFIG.enemies[id] = config.enemies[id]; // 新增怪物
+      }
+      // 同步删除：远程没有的自定义怪物从客户端移除（内置4种保留）
+      const builtin = ['grunt', 'charger', 'elite', 'goblin'];
+      for (const id in CONFIG.enemies) {
+        if (!builtin.includes(id) && !config.enemies[id]) delete CONFIG.enemies[id];
+      }
+    }
+    // 天赋解锁表（合并入 TALENT_TREE，保留 1:0 键）
+    if (config.talents && typeof TALENT_TREE !== 'undefined') {
+      if (config.talents.generalUnlock) TALENT_TREE.generalUnlock = Object.assign({ 1: 0 }, config.talents.generalUnlock);
+      if (config.talents.specialistUnlock) TALENT_TREE.specialistUnlock = Object.assign({ 1: 0 }, config.talents.specialistUnlock);
+    }
+    // 武器碎片需求（按稀有度覆写 craft.js WEAPONS 的 shards）
+    if (config.weapons && typeof WEAPONS !== 'undefined') {
+      CONFIG._remoteWeapons = config.weapons;
+      for (const cid in WEAPONS) {
+        for (const w of WEAPONS[cid]) {
+          if (w.rarity === '普通' && config.weapons.normalShards != null) w.shards = config.weapons.normalShards;
+          if (w.rarity === '稀有' && config.weapons.rareShards != null) w.shards = config.weapons.rareShards;
+        }
+      }
+    }
+    // 技能系统（映射顶层 skillSlots/archerCap + 进化等级 + maxLevel）
+    if (config.skillSystem) {
+      if (config.skillSystem.skillSlots != null) CONFIG.skillSlots = clamp(config.skillSystem.skillSlots, 1, 12, 8);
+      if (config.skillSystem.archerCap != null) CONFIG.archerCap = clamp(config.skillSystem.archerCap, 0, 20, 3);
+      CONFIG._evoReq = { main: config.skillSystem.evoMainLevel || 5, catalyst: config.skillSystem.evoCatalystLevel || 3 };
+      CONFIG._maxLevel = config.skillSystem.maxLevel || 0;
+    }
+    // 远程技能定义覆盖本地（放开"仅合并已存在技能"限制，新技能可注入）
+    if (skills && Object.keys(skills).length > 0) {
+      for (const [id, s] of Object.entries(skills)) {
+        if (CONFIG.skills[id]) {
+          Object.assign(CONFIG.skills[id], { name: s.name, desc: s.desc, flow: s.flow, tags: s.tags, levels: s.levels });
+          if (s.behavior) CONFIG.skills[id].behavior = s.behavior;
+          if (s.icon) CONFIG.skills[id].icon = s.icon;
+          if (s.projectile) CONFIG.skills[id].projectile = s.projectile;
+        } else if (s.behavior) {
+          // 新增技能注入（需有 behavior 才能生效）
+          CONFIG.skills[id] = { name: s.name, icon: s.icon, flow: s.flow, behavior: s.behavior, desc: s.desc, tags: s.tags || [], projectile: s.projectile, levels: s.levels || [] };
+        }
+      }
+      console.log('[config] 远程技能定义已合并');
+    }
+  },
+
+  // 60s 版本轮询 + 页面恢复时检查
+  _startConfigPolling() {
+    if (this._configPolling) return;
+    this._configPolling = true;
+    const check = async () => {
+      try {
+        const res = await fetch(this._configServer + '/api/config/version');
+        const { version } = await res.json();
+        if (version && version > (this._remoteVersion || 0)) {
+          const full = await fetch(this._configServer + '/api/config/game');
+          const { config, skills } = await full.json();
+          if (config) {
+            // 局内延迟应用：战斗/升级/濒死/转盘状态不打断，回菜单再应用
+            const inBattle = ['battle', 'upgrade', 'dying', 'wheel'].includes(this.state);
+            if (inBattle) {
+              this._pendingConfig = { config, skills };
+              if (typeof UI !== 'undefined') UI.toast('配置已更新至 v' + version + '，下一局生效');
+            } else {
+              this._applyRemoteConfig(config, skills);
+              try { localStorage.setItem('rg_h5_remote_config', JSON.stringify({ version, config, skills, ts: Date.now() })); } catch (e) {}
+              if (typeof UI !== 'undefined') UI.toast('配置已更新至 v' + version);
+            }
+            this._remoteVersion = version;
+          }
+        }
+      } catch (e) { /* 静默 */ }
+    };
+    setInterval(check, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   },
 
   resize() {
@@ -93,9 +198,6 @@ const Game = {
     this.report = null;
     this.state = 'battle';
     if (typeof Craft !== 'undefined') Craft.applyWeaponEffects(classId);
-    // P1 天赋：startLevel 开局额外升级
-    const tb = Player.talentBonus;
-    if (tb && tb.startLevel) { Player.pendingLevels += tb.startLevel; Game.tryOpenUpgrade(); }
     UI.banner('进入裂界', Player.cfg.name + ' · ' + Player.cfg.title);
   },
 

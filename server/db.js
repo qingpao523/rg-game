@@ -217,18 +217,83 @@ const SkillDB = {
 let gameConfig = loadJSON('config.json', null);
 
 const ConfigDB = {
+  HISTORY_DIR: path.join(DATA_DIR, 'config-history'),
+
   get() {
     if (!gameConfig) {
       gameConfig = this._default();
       this.save();
     }
+    // 补全缺失字段（兼容 schema 之前创建的 config.json）
+    this._ensureComplete();
     return gameConfig;
   },
+
+  // 用 schema 默认值补全 config 中缺失的字段
+  _ensureComplete() {
+    try {
+      const schema = require('./admin/config-schema.js');
+      let changed = false;
+      for (const f of schema.CONFIG_SCHEMA) {
+        if (schema.getPath(gameConfig, f.path) === undefined) {
+          schema.setPath(gameConfig, f.path, f.def);
+          changed = true;
+        }
+      }
+      if (changed) this.save();
+    } catch (e) { /* schema 加载失败时跳过补全 */ }
+  },
+
+  // schema 白名单深合并 + 版本历史快照（消灭浅合并丢字段）
   update(data) {
-    gameConfig = { ...this.get(), ...data, version: (this.get().version || 1) + 1, updated_at: new Date().toISOString() };
+    const schema = require('./admin/config-schema.js');
+    // 更新前快照（用于回滚）
+    this._snapshot();
+    // 按 schema 白名单深合并：payload 未提供的字段保持原值
+    const merged = schema.deepMergeConfig(this.get(), data);
+    gameConfig = { ...merged, version: (this.get().version || 1) + 1, updated_at: new Date().toISOString() };
     this.save();
     return gameConfig;
   },
+
+  _snapshot() {
+    try {
+      if (!fs.existsSync(this.HISTORY_DIR)) fs.mkdirSync(this.HISTORY_DIR, { recursive: true });
+      const cur = this.get();
+      const file = path.join(this.HISTORY_DIR, `v${cur.version || 1}.json`);
+      fs.writeFileSync(file, JSON.stringify(cur, null, 1), 'utf8');
+      // 只保留最近 30 份
+      const files = fs.readdirSync(this.HISTORY_DIR).filter(f => f.endsWith('.json')).sort();
+      while (files.length > 30) { fs.unlinkSync(path.join(this.HISTORY_DIR, files.shift())); }
+    } catch (e) { console.error('[db] snapshot error:', e.message); }
+  },
+
+  // 版本历史列表
+  history() {
+    try {
+      if (!fs.existsSync(this.HISTORY_DIR)) return [];
+      return fs.readdirSync(this.HISTORY_DIR).filter(f => f.endsWith('.json')).map(f => {
+        try {
+          const c = JSON.parse(fs.readFileSync(path.join(this.HISTORY_DIR, f), 'utf8'));
+          return { version: c.version, updated_at: c.updated_at, file: f };
+        } catch { return null; }
+      }).filter(Boolean).sort((a, b) => (b.version || 0) - (a.version || 0));
+    } catch { return []; }
+  },
+
+  // 回滚到指定版本：用历史快照内容写入，version 继续 +1（绝不回退版本号）
+  rollback(version) {
+    const schema = require('./admin/config-schema.js');
+    const file = path.join(this.HISTORY_DIR, `v${version}.json`);
+    if (!fs.existsSync(file)) return null;
+    const snapshot = JSON.parse(fs.readFileSync(file, 'utf8'));
+    this._snapshot(); // 回滚前也快照当前状态
+    const merged = schema.deepMergeConfig(this.get(), snapshot);
+    gameConfig = { ...merged, version: (this.get().version || 1) + 1, updated_at: new Date().toISOString() };
+    this.save();
+    return gameConfig;
+  },
+
   _default() {
     return {
       version: 1,
