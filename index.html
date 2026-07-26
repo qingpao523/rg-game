@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>无尽入侵</title>
 <style>
   html, body { margin: 0; padding: 0; background: #050508; height: 100%; overflow: hidden; }
@@ -20,16 +17,14 @@
 <body>
 <canvas id="game"></canvas>
 <script>
-  // ===== 版本号：每次发版只需改这里，浏览器自动拉取最新代码和资源 =====
-  window.GAME_VERSION = '1.1.6';
+  // ===== 缓存策略（只下载更新的，没变更的走缓存不重下）=====
+  // GAME_VERSION：代码版本，改代码时才升，JS 按它做缓存键（变了才重新下载 JS）
+  window.GAME_VERSION = '1.1.7';
+  // ASSET_VER：图片资源内容哈希，由服务器注入替换下面这行的占位符。
+  // 图片按它做缓存键——图片内容不变则 URL 不变走缓存；变了才换 URL 重新下载。
+  window.ASSET_VER = '__ASSET_VER__';
 
-  // 清除旧缓存（Cache Storage + Service Worker），避免旧版本残留
-  try {
-    if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
-    if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); });
-  } catch (e) {}
-
-  // 按序加载带版本号的脚本（版本号变化 → URL 变化 → 强制重新下载）
+  // 按序加载脚本（?v=GAME_VERSION：代码没变则 URL 不变走缓存，变了才重新下载）
   (function () {
     var scripts = ['config', 'assets', 'engine', 'player', 'skills', 'enemies', 'ui', 'audio', 'storage', 'talents', 'wheel', 'craft', 'main'];
     var idx = 0;
@@ -42,15 +37,6 @@
       document.head.appendChild(s);
     }
     loadNext();
-  })();
-
-  // 内嵌战斗资源数据（base64，较大）：异步并行加载，不阻塞顺序链与菜单出现。
-  // 加载完成后 Assets.img() 自动使用内嵌资源渲染战斗，远程不再依赖逐张图片请求。
-  (function () {
-    var s = document.createElement('script');
-    s.src = 'js/assets-data.js?v=' + window.GAME_VERSION;
-    s.async = true;
-    document.head.appendChild(s);
   })();
 </script>
 </body>
