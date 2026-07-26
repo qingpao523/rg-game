@@ -50,23 +50,65 @@ function isAdmin(req) {
   return token && AdminAuth.check(token);
 }
 
-function serveStatic(res, filePath, contentType) {
-  try {
-    const data = fs.readFileSync(filePath);
-    res.writeHead(200, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
-    res.end(data);
-  } catch {
-    res.writeHead(404); res.end('Not Found');
-  }
+// 计算图片资源内容哈希（图片内容变 → 哈希变 → 客户端换 URL 重新下载；不变则走缓存）
+function computeAssetVer() {
+  const dir = path.join(GAME_ROOT, 'assets');
+  const items = [];
+  (function walk(d) {
+    let entries;
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const fp = path.join(d, e.name);
+      if (e.isDirectory()) walk(fp);
+      else { try { const s = fs.statSync(fp); items.push(fp + ':' + s.size + ':' + s.mtimeMs); } catch {} }
+    }
+  })(dir);
+  items.sort();
+  return crypto.createHash('md5').update(items.join('|')).digest('hex').slice(0, 12);
+}
+let _assetVerCache = { ver: '', ts: 0 };
+function getAssetVer() {
+  const now = Date.now();
+  if (now - _assetVerCache.ts > 5000) { _assetVerCache = { ver: computeAssetVer(), ts: now }; }
+  return _assetVerCache.ver;
 }
 
-// 伺服游戏本体静态文件（带路径穿越防护）
-function serveGame(res, pathname) {
-  const rel = path.normalize(decodeURIComponent(pathname)).replace(/^([.][.][/\\])+/, '');
+// 伺服静态文件，支持缓存头 + ETag（If-None-Match 命中返回 304，不重复下载）
+function serveStatic(res, filePath, contentType, cacheControl) {
+  let data;
+  try { data = fs.readFileSync(filePath); } catch { res.writeHead(404); return res.end('Not Found'); }
+  const etag = '"' + crypto.createHash('md5').update(data).digest('hex') + '"';
+  const headers = { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*', 'ETag': etag };
+  if (cacheControl) headers['Cache-Control'] = cacheControl;
+  res.writeHead(200, headers);
+  res.end(data);
+}
+
+// 304 处理：命中 ETag 则直接返回 304（无 body，不重复下载）
+function serveStaticCached(req, res, filePath, contentType, cacheControl) {
+  let data;
+  try { data = fs.readFileSync(filePath); } catch { res.writeHead(404); return res.end('Not Found'); }
+  const etag = '"' + crypto.createHash('md5').update(data).digest('hex') + '"';
+  const headers = { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*', 'ETag': etag };
+  if (cacheControl) headers['Cache-Control'] = cacheControl;
+  if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
+  res.writeHead(200, headers);
+  res.end(data);
+}
+
+// 伺服游戏本体静态文件（带路径穿越防护 + 缓存策略）
+function serveGame(req, res, pathname) {
+  const rel = path.normalize(decodeURIComponent(pathname)).replace(/^([.][.][/\\])+/, '').replace(/^[/\\]+/, '');
   const filePath = path.join(GAME_ROOT, rel);
   if (!filePath.startsWith(GAME_ROOT)) { res.writeHead(403); return res.end('Forbidden'); }
   const ext = path.extname(filePath).toLowerCase();
-  serveStatic(res, filePath, GAME_TYPES[ext] || 'application/octet-stream');
+  const type = GAME_TYPES[ext] || 'application/octet-stream';
+  // 图片资源：URL 带 av=ASSET_VER（内容哈希），内容变才换 URL，故可长缓存 immutable
+  if (rel.startsWith('assets/')) return serveStatic(res, filePath, type, 'public, max-age=31536000, immutable');
+  // JS：URL 带 v=GAME_VERSION（代码版本），版本不变则走缓存，故长缓存 immutable
+  if (rel.startsWith('js/')) return serveStatic(res, filePath, type, 'public, max-age=31536000, immutable');
+  // 其余（docs/tools）：短缓存
+  return serveStatic(res, filePath, type, 'public, max-age=300');
 }
 
 // ---------- 路由 ----------
@@ -459,10 +501,19 @@ const server = http.createServer(async (req, res) => {
   // 游戏本体静态文件（index.html / js / assets / docs / tools）
   // 使 node server/index.js 成为完整部署：游戏 + API + 管理后台同源，远程访问不再依赖额外静态服务器
   if (pathname === '/' || pathname === '/index.html') {
-    return serveGame(res, '/index.html');
+    // index.html 注入当前 ASSET_VER，no-cache 保证每次拿到最新版本号与资源哈希（ETag 命中则 304）
+    let html;
+    try { html = fs.readFileSync(path.join(GAME_ROOT, 'index.html'), 'utf8'); }
+    catch { res.writeHead(404); return res.end('Not Found'); }
+    html = html.replace(/__ASSET_VER__/g, getAssetVer());
+    const etag = '"' + crypto.createHash('md5').update(html).digest('hex') + '"';
+    const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache', 'ETag': etag };
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
+    res.writeHead(200, headers);
+    return res.end(html);
   }
   if (pathname.startsWith('/js/') || pathname.startsWith('/assets/') || pathname.startsWith('/docs/') || pathname.startsWith('/tools/')) {
-    return serveGame(res, pathname);
+    return serveGame(req, res, pathname);
   }
 
   // API 路由
