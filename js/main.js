@@ -196,6 +196,9 @@ const Game = {
     Engine.cam.x = 0; Engine.cam.y = 0; Engine.cam.shake = 0;
     this.time = 0;
     this.report = null;
+    this._battleLoadT = 0;       // 战斗资源加载等待计时
+    this._battleForceReady = false; // 兜底：等待超时后强制进入，避免软锁
+    if (typeof Assets !== 'undefined') Assets.retryFailed(); // 菜单阶段失败/超时的资源重试一次
     this.state = 'battle';
     if (typeof Craft !== 'undefined') Craft.applyWeaponEffects(classId);
     UI.banner('进入裂界', Player.cfg.name + ' · ' + Player.cfg.title);
@@ -217,7 +220,14 @@ const Game = {
     if (this.state === 'menu') { this.menuT += dt; UI.update(dt); if (typeof Wheel !== 'undefined') Wheel.update(dt); return; }
     if (this.state === 'wheel') { if (typeof Wheel !== 'undefined') Wheel.update(dt); UI.update(dt); return; }
     if (this.state === 'battle') {
-      if (!Assets.battleReady(this.classId)) return; // 战场资源未就绪：冻结逻辑，配合加载界面
+      if (!Assets.battleReady(this.classId)) {
+        if (!this._battleForceReady) {
+          this._battleLoadT = (this._battleLoadT || 0) + dt;
+          if ((this._retryT = (this._retryT || 0) + dt) > 6) { this._retryT = 0; Assets.retryFailed(); } // 定期重试失败资源
+          if (this._battleLoadT > 20) this._battleForceReady = true; // 兜底：等太久强制进入，避免软锁
+          else return; // 冻结逻辑，配合加载界面
+        }
+      }
       this.time += dt;
       Player.update(dt);
       Skills.update(dt);
@@ -268,8 +278,8 @@ const Game = {
       UI.drawToasts(ctx);
       return;
     }
-    // 战斗关键资源未就绪时显示加载界面，避免黑屏（远程慢网下延迟资源未加载完）
-    if (!Assets.battleReady(this.classId)) {
+    // 战斗关键资源未真正加载完成且未触发兜底强制进入时，显示加载界面避免黑屏/空战斗
+    if (!Assets.battleReady(this.classId) && !this._battleForceReady) {
       this.drawBattleLoading(ctx);
       UI.drawToasts(ctx);
       return;
@@ -344,18 +354,22 @@ const Game = {
     ctx.fillText('档案解封中 ' + Math.round(p * 100) + '%', 360, 660);
   },
 
-  // 战斗资源加载界面（远程慢网下进战斗时显示，避免黑屏）
+  // 战斗资源加载界面（远程慢网下进战斗时显示，避免黑屏/空战斗）
   drawBattleLoading(ctx) {
     UI.goldText(ctx, '战场加载中', 360, 580, 36);
-    const overall = Assets.total ? Math.min(1, Assets.loaded / Assets.total) : 1;
+    // 如实反映 3 个关键战斗资源（背景/人物/小怪）的就绪数，避免整体进度显示 100% 却仍在等待的误导
+    const c = CONFIG.classes[this.classId] || CONFIG.classes[CONFIG.classOrder[0]];
+    const keys = ['maps/broken_dragon_palace_bg.png', c.idle, 'enemies/grunt_move.png'];
+    const done = keys.filter(k => Assets.img(k)).length;
     ctx.fillStyle = 'rgba(201,168,106,0.25)';
     ctx.fillRect(210, 630, 300, 6);
     ctx.fillStyle = '#c9a86a';
-    ctx.fillRect(210, 630, 300 * overall, 6);
+    ctx.fillRect(210, 630, 300 * (done / keys.length), 6);
     ctx.fillStyle = 'rgba(200,200,210,0.7)';
     ctx.font = '15px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('战斗资源载入 ' + Math.round(overall * 100) + '%', 360, 670);
+    const dots = '.'.repeat(1 + (Math.floor((this._battleLoadT || 0) * 2) % 3));
+    ctx.fillText('战斗资源载入 ' + done + '/' + keys.length + dots, 360, 670);
   },
 
   tryOpenUpgrade() {
