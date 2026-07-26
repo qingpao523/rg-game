@@ -202,7 +202,7 @@ const Skills = {
   bh_bolt(s, c, d, dt) {
     s.t -= dt;
     if (s.t > 0) return;
-    const e = Enemies.tankiest(Player.x, Player.y, 620);
+    const e = Enemies.nearest(Player.x, Player.y, 620);
     if (!e) { s.t = 0.25; return; }
     s.t = d.cd * Player.cdMult;
     const tb = Player.talentBonus;
