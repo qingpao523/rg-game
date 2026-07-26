@@ -98,6 +98,8 @@ body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 .config-field label { display: block; font-size: 12px; color: rgba(200,200,210,0.6); margin-bottom: 4px; }
 .config-field input { width: 100%; padding: 8px 10px; background: rgba(30,28,42,0.9); border: 1px solid rgba(201,168,106,0.3); border-radius: 6px; color: #e0dcd0; font-size: 14px; outline: none; }
 .config-field input:focus { border-color: #c9a86a; }
+.cfg-path { font-size: 10px; color: rgba(200,200,210,0.35); margin-top: 3px; font-family: monospace; }
+.cfg-err { font-size: 11px; color: #ff8a8a; margin-top: 2px; min-height: 14px; }
 .config-version { font-size: 13px; color: rgba(200,200,210,0.5); margin-left: 12px; }
 
 /* 状态标签 */

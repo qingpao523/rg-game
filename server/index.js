@@ -258,10 +258,36 @@ route('GET', '/api/admin/config', async (req, res) => {
   json(res, 200, { config: ConfigDB.get() });
 });
 
+// 配置 schema（供 admin schema 驱动渲染 + 校验）
+route('GET', '/api/admin/config/schema', async (req, res) => {
+  if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
+  const schema = require('./admin/config-schema.js');
+  json(res, 200, { schema: schema.CONFIG_SCHEMA, crossFieldRules: schema.CROSS_FIELD_RULES });
+});
+
 route('PUT', '/api/admin/config', async (req, res) => {
   if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
   const body = await readBody(req);
+  // 服务端严格校验：未知键拒绝 + 类型/范围/跨字段校验
+  const schema = require('./admin/config-schema.js');
+  const errors = schema.validateConfig(body, { strictUnknownKeys: true });
+  if (errors.length) return json(res, 422, { error: 'validation failed', errors });
   json(res, 200, { config: ConfigDB.update(body) });
+});
+
+// 配置版本历史
+route('GET', '/api/admin/config/history', async (req, res) => {
+  if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
+  json(res, 200, { history: ConfigDB.history() });
+});
+
+// 回滚到指定版本（version 继续 +1，绝不回退版本号）
+route('POST', '/api/admin/config/rollback', async (req, res) => {
+  if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' });
+  const body = await readBody(req);
+  const result = ConfigDB.rollback(body.version);
+  if (!result) return json(res, 404, { error: 'version not found' });
+  json(res, 200, { config: result });
 });
 
 // 排行榜管理

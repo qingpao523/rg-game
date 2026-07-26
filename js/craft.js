@@ -94,7 +94,9 @@ const Craft = {
     UI.goldText(ctx, this.tab === 'weapons' ? '武 器 库' : '背 包', W / 2, 80, 36);
 
     // 页签
-    const tabs = [['weapons', '武器'], ['backpack', '背包'], ['leaderboard', '排行']];
+    // 排行榜 tab 受 features.leaderboard 门控
+    const tabs = [['weapons', '武器'], ['backpack', '背包']];
+    if (!CONFIG.features || CONFIG.features.leaderboard !== false) tabs.push(['leaderboard', '排行']);
     this._tabs = [];
     tabs.forEach((t, i) => {
       const tx = W / 2 - 185 + i * 130, ty = 110, tw = 110, th = 40;

@@ -524,20 +524,23 @@ const UI = {
     ctx.fillText('技能栏 ' + Skills.owned.length + ' / ' + CONFIG.skillSlots, W / 2, y0 + chh + 44);
     ctx.restore();
 
-    // Bug2：跳过按钮（不选技能直接继续）
-    const skipW = 160, skipH = 48, skipX = (W - skipW) / 2, skipY = y0 + chh + 60;
-    ctx.save();
-    ctx.fillStyle = 'rgba(30,30,42,0.85)';
-    ctx.strokeStyle = 'rgba(160,160,175,0.4)';
-    ctx.lineWidth = 1;
-    this.rr(ctx, skipX, skipY, skipW, skipH, 8);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = 'rgba(200,200,210,0.7)';
-    ctx.font = '15px "PingFang SC", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('跳过本次选择', skipX + skipW / 2, skipY + 30);
-    ctx.restore();
-    this.skipBtn = { x: skipX, y: skipY, w: skipW, h: skipH };
+    // Bug2：跳过按钮（不选技能直接继续，受 features.skipUpgrade 门控）
+    this.skipBtn = null;
+    if (!CONFIG.features || CONFIG.features.skipUpgrade !== false) {
+      const skipW = 160, skipH = 48, skipX = (W - skipW) / 2, skipY = y0 + chh + 60;
+      ctx.save();
+      ctx.fillStyle = 'rgba(30,30,42,0.85)';
+      ctx.strokeStyle = 'rgba(160,160,175,0.4)';
+      ctx.lineWidth = 1;
+      this.rr(ctx, skipX, skipY, skipW, skipH, 8);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(200,200,210,0.7)';
+      ctx.font = '15px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('跳过本次选择', skipX + skipW / 2, skipY + 30);
+      ctx.restore();
+      this.skipBtn = { x: skipX, y: skipY, w: skipW, h: skipH };
+    }
   },
 
   // ---------- 暂停 ----------
@@ -688,22 +691,26 @@ const UI = {
     this.deathButtons = [];
     const b1 = { x: 100, y: 1000, w: 250, h: 64, id: 'restart' };
     const b2 = { x: 380, y: 1000, w: 240, h: 64, id: 'menu' };
-    const b3 = { x: 100, y: 920, w: 250, h: 56, id: 'wheel' };
     this.drawButton(ctx, b1.x, b1.y, b1.w, b1.h, '再次进入裂界', true);
     this.drawButton(ctx, b2.x, b2.y, b2.w, b2.h, '返回档案室', false);
-    // P1：转盘按钮
-    ctx.save();
-    ctx.fillStyle = 'rgba(201,168,106,0.25)';
-    ctx.strokeStyle = '#f0d9a0';
-    ctx.lineWidth = 2;
-    this.rr(ctx, b3.x, b3.y, b3.w, b3.h, 10);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#f0d9a0';
-    ctx.font = 'bold 18px "PingFang SC", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('战利品分配', b3.x + b3.w / 2, b3.y + 35);
-    ctx.restore();
-    this.deathButtons.push(b1, b2, b3);
+    // P1：转盘按钮（受 features.wheel 门控）
+    if (!CONFIG.features || CONFIG.features.wheel !== false) {
+      const b3 = { x: 100, y: 920, w: 250, h: 56, id: 'wheel' };
+      ctx.save();
+      ctx.fillStyle = 'rgba(201,168,106,0.25)';
+      ctx.strokeStyle = '#f0d9a0';
+      ctx.lineWidth = 2;
+      this.rr(ctx, b3.x, b3.y, b3.w, b3.h, 10);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#f0d9a0';
+      ctx.font = 'bold 18px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('战利品分配', b3.x + b3.w / 2, b3.y + 35);
+      ctx.restore();
+      this.deathButtons.push(b1, b2, b3);
+    } else {
+      this.deathButtons.push(b1, b2);
+    }
   },
 
   drawButton(ctx, x, y, w, h, text, primary) {

@@ -1,5 +1,5 @@
 {
- "version": 6,
+ "version": 1,
  "economy": {
   "expMult": 0.3,
   "timeMult": 0.5,
@@ -14,9 +14,7 @@
   "eliteHealChance": 0.25,
   "goblinExpValue": 8,
   "goblinShardMin": 2,
-  "goblinShardMax": 3,
-  "healValue": 30,
-  "expDoubleChance": 0
+  "goblinShardMax": 3
  },
  "waves": {
   "waveTime": 25,
@@ -52,36 +50,7 @@
  "features": {
   "elementalReaction": true,
   "wheel": true,
-  "leaderboard": true,
-  "skipUpgrade": true
+  "leaderboard": true
  },
- "updated_at": "2026-07-26T03:28:16.009Z",
- "player": {
-  "hp": 120,
-  "speed": 230,
-  "pickup": 110,
-  "hurtCd": 0.5,
-  "drawH": 118
- },
- "playerExp": {
-  "base": 5,
-  "linear": 3,
-  "quad": 0.35
- },
- "settlement": {
-  "expPerKill": 0.3,
-  "expPerSecond": 0.5,
-  "goldPerKill": 0.1,
-  "goldPerSecond": 0.05,
-  "shardPerElite": 1,
-  "shardPerGoblinMin": 2,
-  "shardPerGoblinMax": 3
- },
- "skillSystem": {
-  "skillSlots": 8,
-  "archerCap": 3,
-  "evoMainLevel": 5,
-  "evoCatalystLevel": 3,
-  "maxLevel": 0
- }
+ "updated_at": "2026-07-25T16:22:05.443Z"
 }

@@ -8,7 +8,13 @@ const CONFIG = {
     drawH: 118,
   },
 
-  expNeed(lvl) { return Math.floor(5 + lvl * 3 + lvl * lvl * 0.35); },
+  expNeed(lvl) {
+    const pe = CONFIG._remotePlayerExp || {};
+    const base = pe.base != null ? pe.base : 5;
+    const linear = pe.linear != null ? pe.linear : 3;
+    const quad = pe.quad != null ? pe.quad : 0.35;
+    return Math.floor(base + lvl * linear + lvl * lvl * quad);
+  },
   activeLevel(lvl) { return Math.min(5, 1 + Math.floor((lvl - 1) / 4)); },
 
   // 20 个基础技能 Lv1-5（数组下标 0 = Lv.1）

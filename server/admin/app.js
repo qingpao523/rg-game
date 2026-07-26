@@ -324,89 +324,178 @@ const AdminApp = {
     this.loadEnemies();
   },
 
-  // ---------- 游戏配置（全数值） ----------
+  // ---------- 游戏配置（schema 驱动） ----------
+  _cfgSchema: null,
+  _cfgValues: {},   // path -> 当前编辑值
+  _cfgOrig: {},     // path -> 原始值（用于 diff/修改标记）
+
   async loadConfig() {
     try {
-      const { config: c } = await this.api('GET', '/api/admin/config');
+      // 拉取 schema + 当前配置
+      const [schemaRes, cfgRes] = await Promise.all([
+        this.api('GET', '/api/admin/config/schema'),
+        this.api('GET', '/api/admin/config'),
+      ]);
+      this._cfgSchema = schemaRes.schema;
+      this._cfgRules = schemaRes.crossFieldRules || [];
+      const c = cfgRes.config;
       document.getElementById('config-version').textContent = '当前版本：v' + (c.version || 1);
-      const editor = document.getElementById('config-editor');
-      const p = c.player || {};
-      const pe = c.playerExp || {};
-      const st = c.settlement || {};
-      const ss = c.skillSystem || {};
-      const dr = c.drops || {};
-      editor.innerHTML = `
-        <div class="config-section"><h4>🧑 玩家基础属性</h4><div class="config-row">
-          <div class="config-field"><label>生命值</label><input type="number" id="cfg-p-hp" value="${p.hp ?? 120}"></div>
-          <div class="config-field"><label>移速</label><input type="number" id="cfg-p-speed" value="${p.speed ?? 230}"></div>
-          <div class="config-field"><label>拾取范围</label><input type="number" id="cfg-p-pickup" value="${p.pickup ?? 110}"></div>
-          <div class="config-field"><label>受击CD(s)</label><input type="number" step="0.1" id="cfg-p-hurtCd" value="${p.hurtCd ?? 0.5}"></div>
-        </div></div>
-        <div class="config-section"><h4>📈 局内经验曲线（升级）</h4><div class="config-row">
-          <div class="config-field"><label>基础经验</label><input type="number" id="cfg-pe-base" value="${pe.base ?? 5}"></div>
-          <div class="config-field"><label>线性系数</label><input type="number" step="0.5" id="cfg-pe-linear" value="${pe.linear ?? 3}"></div>
-          <div class="config-field"><label>二次系数</label><input type="number" step="0.05" id="cfg-pe-quad" value="${pe.quad ?? 0.35}"></div>
-        </div><p style="font-size:12px;color:rgba(200,200,210,0.4);margin-top:4px">公式：expNeed(lv) = base + lv × linear + lv² × quad</p></div>
-        <div class="config-section"><h4>💰 局外经济（结算奖励）</h4><div class="config-row">
-          <div class="config-field"><label>经验/击杀</label><input type="number" step="0.1" id="cfg-expMult" value="${c.economy?.expMult ?? 0.3}"></div>
-          <div class="config-field"><label>经验/秒</label><input type="number" step="0.1" id="cfg-timeMult" value="${c.economy?.timeMult ?? 0.5}"></div>
-          <div class="config-field"><label>金币/击杀</label><input type="number" step="0.01" id="cfg-goldKillMult" value="${c.economy?.goldKillMult ?? 0.1}"></div>
-          <div class="config-field"><label>金币/秒</label><input type="number" step="0.01" id="cfg-goldTimeMult" value="${c.economy?.goldTimeMult ?? 0.05}"></div>
-        </div><div class="config-row">
-          <div class="config-field"><label>升级基础经验</label><input type="number" id="cfg-expNeedBase" value="${c.economy?.expNeedBase ?? 20}"></div>
-          <div class="config-field"><label>升级线性系数</label><input type="number" id="cfg-expNeedLinear" value="${c.economy?.expNeedLinear ?? 15}"></div>
-          <div class="config-field"><label>升级二次系数</label><input type="number" step="0.1" id="cfg-expNeedQuad" value="${c.economy?.expNeedQuad ?? 0.8}"></div>
-        </div></div>
-        <div class="config-section"><h4>🎁 掉落系统</h4><div class="config-row">
-          <div class="config-field"><label>精英碎片概率</label><input type="number" step="0.05" id="cfg-eliteShardChance" value="${dr.eliteShardChance ?? 0.3}"></div>
-          <div class="config-field"><label>精英血瓶概率</label><input type="number" step="0.05" id="cfg-eliteHealChance" value="${dr.eliteHealChance ?? 0.25}"></div>
-          <div class="config-field"><label>血瓶回复量</label><input type="number" id="cfg-healValue" value="${dr.healValue ?? 30}"></div>
-          <div class="config-field"><label>哥布林经验值</label><input type="number" id="cfg-goblinExpValue" value="${dr.goblinExpValue ?? 8}"></div>
-          <div class="config-field"><label>哥布林碎片最少</label><input type="number" id="cfg-goblinShardMin" value="${dr.goblinShardMin ?? 2}"></div>
-          <div class="config-field"><label>哥布林碎片最多</label><input type="number" id="cfg-goblinShardMax" value="${dr.goblinShardMax ?? 3}"></div>
-        </div></div>
-        <div class="config-section"><h4>🌊 波次曲线</h4><div class="config-row">
-          <div class="config-field"><label>每波时长(s)</label><input type="number" id="cfg-waveTime" value="${c.waves?.waveTime ?? 25}"></div>
-          <div class="config-field"><label>初始刷怪间隔</label><input type="number" step="0.1" id="cfg-baseInterval" value="${c.waves?.baseInterval ?? 1.5}"></div>
-          <div class="config-field"><label>最小刷怪间隔</label><input type="number" step="0.05" id="cfg-minInterval" value="${c.waves?.minInterval ?? 0.45}"></div>
-          <div class="config-field"><label>最大存活怪数</label><input type="number" id="cfg-maxAlive" value="${c.waves?.maxAlive ?? 120}"></div>
-        </div><div class="config-row">
-          <div class="config-field"><label>精英首现(s)</label><input type="number" id="cfg-eliteFirstTime" value="${c.waves?.eliteFirstTime ?? 70}"></div>
-          <div class="config-field"><label>精英间隔(s)</label><input type="number" id="cfg-eliteInterval" value="${c.waves?.eliteInterval ?? 30}"></div>
-          <div class="config-field"><label>精英上限</label><input type="number" id="cfg-eliteCap" value="${c.waves?.eliteCap ?? 5}"></div>
-          <div class="config-field"><label>哥布林首现(s)</label><input type="number" id="cfg-goblinFirst" value="${c.waves?.goblinFirst ?? 45}"></div>
-        </div></div>
-        <div class="config-section"><h4>⚔️ 技能系统</h4><div class="config-row">
-          <div class="config-field"><label>技能栏数量</label><input type="number" id="cfg-skillSlots" value="${ss.skillSlots ?? 8}"></div>
-          <div class="config-field"><label>射手上限</label><input type="number" id="cfg-archerCap" value="${ss.archerCap ?? 3}"></div>
-          <div class="config-field"><label>进化主技能等级</label><input type="number" id="cfg-evoMainLevel" value="${ss.evoMainLevel ?? 5}"></div>
-          <div class="config-field"><label>进化催化等级</label><input type="number" id="cfg-evoCatalystLevel" value="${ss.evoCatalystLevel ?? 3}"></div>
-          <div class="config-field"><label>等级上限(0=无限)</label><input type="number" id="cfg-maxLevel" value="${ss.maxLevel ?? 0}"></div>
-        </div></div>
-        <div class="config-section"><h4>🔧 功能开关</h4><div class="config-row">
-          <div class="config-field"><label><input type="checkbox" id="cfg-featReaction" ${c.features?.elementalReaction ? 'checked' : ''}> 元素反应</label></div>
-          <div class="config-field"><label><input type="checkbox" id="cfg-featWheel" ${c.features?.wheel ? 'checked' : ''}> 战利品分配</label></div>
-          <div class="config-field"><label><input type="checkbox" id="cfg-featLeaderboard" ${c.features?.leaderboard ? 'checked' : ''}> 排行榜</label></div>
-          <div class="config-field"><label><input type="checkbox" id="cfg-featSkip" ${c.features?.skipUpgrade !== false ? 'checked' : ''}> 升级可跳过</label></div>
-        </div></div>`;
+
+      // 提取每个字段的当前值
+      this._cfgValues = {}; this._cfgOrig = {};
+      for (const f of this._cfgSchema) {
+        const v = this._getPath(c, f.path);
+        const val = v !== undefined ? v : f.def;
+        this._cfgValues[f.path] = val;
+        this._cfgOrig[f.path] = val;
+      }
+      this._renderConfigEditor();
     } catch (e) { console.error(e); }
   },
 
+  _getPath(obj, path) { return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj); },
+  _setPath(obj, path, val) {
+    const keys = path.split('.'); let o = obj;
+    for (let i = 0; i < keys.length - 1; i++) { if (o[keys[i]] == null || typeof o[keys[i]] !== 'object') o[keys[i]] = {}; o = o[keys[i]]; }
+    o[keys[keys.length - 1]] = val;
+  },
+
+  // 模块分组（path 前缀 -> 模块名）
+  _cfgModules: [
+    { prefix: 'player.', name: '🧑 玩家基础属性', desc: '玩家的基础数值' },
+    { prefix: 'playerExp.', name: '📈 局内升级经验曲线', desc: '公式：expNeed(lv) = base + lv×linear + lv²×quad' },
+    { prefix: 'settlement.', name: '💰 结算奖励', desc: '每局结算的局外经验/金币/碎片' },
+    { prefix: 'economy.', name: '💵 局外升级曲线', desc: '局外等级升级所需经验' },
+    { prefix: 'waves.', name: '🌊 波次曲线', desc: '刷怪节奏与难度' },
+    { prefix: 'drops.', name: '🎁 掉落系统', desc: '精英/哥布林掉落' },
+    { prefix: 'talents.', name: '🌟 天赋解锁', desc: '天赋层级解锁条件' },
+    { prefix: 'weapons.', name: '🗡️ 武器合成', desc: '武器碎片需求' },
+    { prefix: 'skillSystem.', name: '⚔️ 技能系统', desc: '技能栏/进化/等级上限' },
+    { prefix: 'features.', name: '🔧 功能开关', desc: '功能开/关' },
+  ],
+
+  _renderConfigEditor() {
+    const editor = document.getElementById('config-editor');
+    let html = '';
+    for (const mod of this._cfgModules) {
+      const fields = this._cfgSchema.filter(f => f.path.startsWith(mod.prefix));
+      if (!fields.length) continue;
+      html += `<div class="config-section"><h4>${mod.name}</h4><p style="font-size:12px;color:rgba(200,200,210,0.4);margin:2px 0 10px">${mod.desc}</p><div class="config-row">`;
+      for (const f of fields) {
+        const val = this._cfgValues[f.path];
+        const inputId = 'cfgf_' + f.path.replace(/\./g, '_');
+        const shortName = f.path.split('.').pop();
+        if (f.type === 'bool') {
+          html += `<div class="config-field"><label title="${f.desc}"><input type="checkbox" id="${inputId}" data-path="${f.path}" ${val ? 'checked' : ''} onchange="AdminApp.onCfgInput(this)"> ${f.label}</label><div class="cfg-path">${f.path}</div><div class="cfg-err" id="err_${inputId}"></div></div>`;
+        } else {
+          const step = f.step || (f.type === 'int' ? 1 : 0.1);
+          html += `<div class="config-field"><label title="${f.desc}">${f.label}${f.unit ? '(' + f.unit + ')' : ''}</label><input type="number" step="${step}" id="${inputId}" data-path="${f.path}" value="${val}" oninput="AdminApp.onCfgInput(this)"><div class="cfg-path">${f.path} · 范围 ${f.min}~${f.max}</div><div class="cfg-err" id="err_${inputId}"></div></div>`;
+        }
+      }
+      html += `</div></div>`;
+    }
+    editor.innerHTML = html;
+    this._updateSaveBtn();
+  },
+
+  // 实时校验单个字段
+  _validateCfgField(f, val) {
+    if (f.type === 'bool') return null;
+    if (val === '' || val === null || val === undefined) return '不能为空';
+    const n = parseFloat(val);
+    if (isNaN(n)) return '必须是数字';
+    if (f.type === 'int' && !Number.isInteger(n)) return '必须是整数';
+    if (n < f.min) return '不能小于 ' + f.min;
+    if (n > f.max) return '不能大于 ' + f.max;
+    return null;
+  },
+
+  onCfgInput(el) {
+    const path = el.dataset.path;
+    const f = this._cfgSchema.find(x => x.path === path);
+    if (!f) return;
+    const val = f.type === 'bool' ? el.checked : el.value;
+    this._cfgValues[path] = val;
+    // 实时校验
+    const err = this._validateCfgField(f, val);
+    const errEl = document.getElementById('err_cfgf_' + path.replace(/\./g, '_'));
+    if (errEl) { errEl.textContent = err || ''; el.style.borderColor = err ? '#e06c6c' : ''; }
+    this._updateSaveBtn();
+  },
+
+  // 跨字段校验
+  _validateCrossField() {
+    const errs = [];
+    for (const rule of this._cfgRules) {
+      const va = parseFloat(this._cfgValues[rule.a]), vb = parseFloat(this._cfgValues[rule.b]);
+      if (va === undefined || vb === undefined || isNaN(va) || isNaN(vb)) continue;
+      const ok = rule.op === '<=' ? va <= vb : va >= vb;
+      if (!ok) errs.push({ path: rule.a, msg: rule.msg });
+    }
+    return errs;
+  },
+
+  _updateSaveBtn() {
+    // 统计错误数 + 修改数
+    let errCount = 0, changedCount = 0;
+    for (const f of this._cfgSchema) {
+      const err = this._validateCfgField(f, this._cfgValues[f.path]);
+      if (err) errCount++;
+      if (String(this._cfgValues[f.path]) !== String(this._cfgOrig[f.path])) changedCount++;
+    }
+    errCount += this._validateCrossField().length;
+    const btn = document.getElementById('save-config-btn');
+    if (btn) {
+      btn.disabled = errCount > 0;
+      btn.textContent = errCount > 0 ? `保存并发布（${errCount} 个字段待修正）` : (changedCount > 0 ? `保存并发布（${changedCount} 项修改）` : '保存并发布');
+    }
+  },
+
   async saveConfig() {
-    const v = id => parseFloat(document.getElementById(id)?.value) || 0;
-    const data = {
-      player: { hp: v('cfg-p-hp'), speed: v('cfg-p-speed'), pickup: v('cfg-p-pickup'), hurtCd: v('cfg-p-hurtCd') },
-      playerExp: { base: v('cfg-pe-base'), linear: v('cfg-pe-linear'), quad: v('cfg-pe-quad') },
-      economy: { expMult: v('cfg-expMult'), timeMult: v('cfg-timeMult'), goldKillMult: v('cfg-goldKillMult'), goldTimeMult: v('cfg-goldTimeMult'), expNeedBase: v('cfg-expNeedBase'), expNeedLinear: v('cfg-expNeedLinear'), expNeedQuad: v('cfg-expNeedQuad') },
-      drops: { eliteShardChance: v('cfg-eliteShardChance'), eliteHealChance: v('cfg-eliteHealChance'), healValue: v('cfg-healValue'), goblinExpValue: v('cfg-goblinExpValue'), goblinShardMin: v('cfg-goblinShardMin'), goblinShardMax: v('cfg-goblinShardMax') },
-      waves: { waveTime: v('cfg-waveTime'), baseInterval: v('cfg-baseInterval'), minInterval: v('cfg-minInterval'), maxAlive: v('cfg-maxAlive'), eliteFirstTime: v('cfg-eliteFirstTime'), eliteInterval: v('cfg-eliteInterval'), eliteCap: v('cfg-eliteCap'), goblinFirst: v('cfg-goblinFirst') },
-      skillSystem: { skillSlots: v('cfg-skillSlots'), archerCap: v('cfg-archerCap'), evoMainLevel: v('cfg-evoMainLevel'), evoCatalystLevel: v('cfg-evoCatalystLevel'), maxLevel: v('cfg-maxLevel') },
-      features: { elementalReaction: document.getElementById('cfg-featReaction')?.checked, wheel: document.getElementById('cfg-featWheel')?.checked, leaderboard: document.getElementById('cfg-featLeaderboard')?.checked, skipUpgrade: document.getElementById('cfg-featSkip')?.checked },
-    };
+    // 客户端校验（单字段 + 跨字段）
+    const errors = [];
+    for (const f of this._cfgSchema) {
+      const err = this._validateCfgField(f, this._cfgValues[f.path]);
+      if (err) errors.push({ path: f.path, msg: err });
+    }
+    errors.push(...this._validateCrossField());
+    if (errors.length) { alert('有 ' + errors.length + ' 个字段待修正：\n' + errors.slice(0, 5).map(e => e.path + ': ' + e.msg).join('\n')); return; }
+
+    // 构建 payload（只包含修改过的字段，深合并由服务端处理）
+    const payload = {};
+    for (const f of this._cfgSchema) {
+      const val = this._cfgValues[f.path];
+      if (String(val) !== String(this._cfgOrig[f.path])) {
+        this._setPath(payload, f.path, f.type === 'bool' ? val : parseFloat(val));
+      }
+    }
+    if (Object.keys(payload).length === 0) { alert('没有修改'); return; }
+
     try {
-      const { config } = await this.api('PUT', '/api/admin/config', data);
-      document.getElementById('config-version').textContent = '当前版本：v' + config.version;
-      alert('配置已保存并发布为 v' + config.version);
+      const res = await fetch('/api/admin/config', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': this.token },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const msgs = (data.errors || []).map(e => e.path + ': ' + e.msg).join('\n');
+        alert('服务端校验失败：\n' + msgs); return;
+      }
+      // 保存后回读确认
+      const { config: readBack } = await this.api('GET', '/api/admin/config');
+      let mismatch = [];
+      for (const f of this._cfgSchema) {
+        if (String(this._cfgValues[f.path]) !== String(this._cfgOrig[f.path])) {
+          const rb = this._getPath(readBack, f.path);
+          if (String(rb) !== String(this._cfgValues[f.path])) mismatch.push(f.path);
+        }
+      }
+      document.getElementById('config-version').textContent = '当前版本：v' + readBack.version;
+      // 更新原始值
+      for (const f of this._cfgSchema) this._cfgOrig[f.path] = this._cfgValues[f.path];
+      this._updateSaveBtn();
+      if (mismatch.length) alert('⚠️ 回读不一致：' + mismatch.join(', '));
+      else alert('✓ 回读一致，配置已发布 v' + readBack.version);
     } catch (e) { alert('保存失败：' + e.message); }
   },
 
