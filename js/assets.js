@@ -84,19 +84,31 @@ const Assets = {
     return i && i.complete && i.naturalWidth > 0 ? i : null;
   },
 
-  // 资源是否已尘埃落定：加载成功 或 已失败/超时（失败的资源不再等待，避免软锁）
-  settled(path) {
-    return !!this.img(path) || this.failed.includes(path);
-  },
-
-  // 战斗关键资源是否就绪（地图背景 + 当前职业精灵 + 基础小怪）。
-  // 远程慢网下这些延迟资源可能未加载完，缺失时 drawSprite 会静默跳过导致黑屏，
-  // 因此进入战斗前需检查，未就绪时展示加载界面而非黑屏。
+  // 战斗关键资源是否"真正加载完成"（地图背景 + 当前职业精灵 + 基础小怪）。
+  // 注意：必须用 img() 判断真实加载，不能用"失败/超时即就绪"——慢网下资源 8s 超时
+  // 被标记 failed 但其实仍在下载，若当作就绪会直接渲染出资源缺失的空战斗（背景/人物/怪物全 invisible）。
+  // 真正加载完成前由 main.js 展示加载界面；确实加载失败（404）时由 main.js 的兜底计时器强制进入，避免软锁。
   battleReady(classId) {
     const c = CONFIG.classes[classId] || CONFIG.classes[CONFIG.classOrder[0]];
-    return this.settled('maps/broken_dragon_palace_bg.png')
-      && this.settled(c.idle)
-      && this.settled('enemies/grunt_move.png');
+    return !!this.img('maps/broken_dragon_palace_bg.png')
+      && !!this.img(c.idle)
+      && !!this.img('enemies/grunt_move.png');
+  },
+
+  // 重新加载已失败/超时的资源。慢网超时的资源往往还能下完，404 的也值得重试一次。
+  // 进入战斗时与战斗中定期调用，配合 battleReady 的真实加载判断，最大化资源可用率。
+  retryFailed() {
+    if (!this.failed.length) return;
+    const retry = this.failed.slice();
+    this.failed = [];
+    for (const path of retry) this._reload(path);
+  },
+
+  _reload(path) {
+    const img = new Image();
+    img.onerror = () => { if (!this.failed.includes(path)) this.failed.push(path); };
+    img.src = 'assets/' + path + '?v=' + (window.GAME_VERSION || '1') + '&r=' + (this._retryN = (this._retryN || 0) + 1);
+    this.images[path] = img;
   },
 
   // 白色剪影：受击闪白
