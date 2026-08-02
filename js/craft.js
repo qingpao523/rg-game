@@ -79,10 +79,12 @@ const Craft = {
   // 战斗中自动装备第一把已拥有武器的效果
   applyWeaponEffects(classId) {
     const owned = this.ownedWeapons(classId);
-    if (!owned.length) return;
-    const w = owned[0]; // 简化：只装备第一把
-    Player._weaponEffect = w.effect;
-    Player._weaponName = w.name;
+    // 稀有优先于普通：同职业多把武器时按稀有度降序取第一把
+    const rarityRank = ['普通', '稀有', '史诗'];
+    const w = owned.slice().sort((a, b) => rarityRank.indexOf(b.rarity) - rarityRank.indexOf(a.rarity))[0] || null;
+    // 无武器也要清空，避免上一局的效果残留到下一局
+    Player._weaponEffect = w ? w.effect : null;
+    Player._weaponName = w ? w.name : '';
   },
 
   draw(ctx) {
@@ -210,7 +212,7 @@ const Craft = {
 
     const stats = [
       ['局外等级', 'Lv.' + (d.level || 1)],
-      ['天赋点', (d.talentPoints || 0) + ' 点'],
+      ['天赋点', (d.generalTalentPoints || 0) + ' 通用 / ' + (d.specialistTalentPoints || 0) + ' 专精'],
       ['金币', (d.gold || 0)],
       ['碎片', (d.shards || 0)],
       ['总局数', s.runs || 0],

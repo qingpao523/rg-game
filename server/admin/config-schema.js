@@ -194,7 +194,52 @@ function deepMergeConfig(current, payload) {
   return out;
 }
 
+// ---------- 敌人定义校验（动态键，独立于 CONFIG_SCHEMA） ----------
+const ENEMY_FIELDS = {
+  name: { type: 'str', max: 40 },
+  desc: { type: 'str', max: 200 },
+  img: { type: 'str', max: 200 },
+  icon: { type: 'str', max: 200 },
+  projectile: { type: 'str', max: 200 },
+  behavior: { type: 'str', max: 60 },
+  tags: { type: 'array', max: 10 },
+  hp: { type: 'num', min: 1, max: 1000000000 },
+  hpWave: { type: 'num', min: 0, max: 10000000 },
+  hpWavePct: { type: 'num', min: 0, max: 100 },
+  dmg: { type: 'num', min: 0, max: 10000000 },
+  dmgWave: { type: 'num', min: 0, max: 10000000 },
+  speed: { type: 'num', min: 0, max: 5000 },
+  exp: { type: 'num', min: 0, max: 10000000 },
+  r: { type: 'num', min: 1, max: 1000 },
+  drawH: { type: 'num', min: 1, max: 4000 },
+  chargeSpeed: { type: 'num', min: 0, max: 5000 },
+  chargeRange: { type: 'num', min: 0, max: 10000 },
+  spawnWeight: { type: 'num', min: 0, max: 1000 },
+};
+
+// 校验敌人数据（允许部分字段，只检查 payload 中出现的键）
+function validateEnemy(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return [{ path: '', msg: '必须是对象' }];
+  const errors = [];
+  for (const [k, v] of Object.entries(data)) {
+    const spec = ENEMY_FIELDS[k];
+    if (!spec) { errors.push({ path: k, msg: '未知字段（schema 中不存在）' }); continue; }
+    if (v === undefined || v === null || v === '') { errors.push({ path: k, msg: '不能为空' }); continue; }
+    if (spec.type === 'num') {
+      const n = typeof v === 'number' ? v : parseFloat(v);
+      if (isNaN(n)) { errors.push({ path: k, msg: '必须是数字' }); continue; }
+      if (n < spec.min || n > spec.max) errors.push({ path: k, msg: `必须在 ${spec.min}~${spec.max} 之间` });
+    } else if (spec.type === 'str') {
+      if (typeof v !== 'string') { errors.push({ path: k, msg: '必须是文本' }); continue; }
+      if (v.length > spec.max) errors.push({ path: k, msg: `长度不能超过 ${spec.max}` });
+    } else if (spec.type === 'array') {
+      if (!Array.isArray(v) || v.length > spec.max) errors.push({ path: k, msg: `必须是数组且长度不超过 ${spec.max}` });
+    }
+  }
+  return errors;
+}
+
 // 导出（兼容 Node CommonJS 和浏览器 <script>）
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { CONFIG_SCHEMA, CONSUMED_PATHS, CROSS_FIELD_RULES, buildDefaults, validateField, validateConfig, deepMergeConfig, getPath, setPath };
+  module.exports = { CONFIG_SCHEMA, CONSUMED_PATHS, CROSS_FIELD_RULES, ENEMY_FIELDS, buildDefaults, validateField, validateConfig, validateEnemy, deepMergeConfig, getPath, setPath };
 }

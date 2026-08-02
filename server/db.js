@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const vm = require('vm');
 
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -16,7 +17,11 @@ function loadJSON(file, fallback) {
 
 function saveJSON(file, data) {
   try {
-    fs.writeFileSync(path.join(DATA_DIR, file), JSON.stringify(data, null, 1), 'utf8');
+    // 原子写：先写临时文件再 rename，避免进程中断时 JSON 损坏
+    const p = path.join(DATA_DIR, file);
+    const tmp = p + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 1), 'utf8');
+    fs.renameSync(tmp, p);
   } catch (e) { console.error('[db] save error:', file, e.message); }
 }
 
@@ -74,7 +79,8 @@ let runs = loadJSON('runs.json', []);
 
 const RunDB = {
   add(record) {
-    runs.push({ ...record, id: runs.length + 1, created_at: new Date().toISOString() });
+    // UUID 避免截断后 runs.length+1 与存量记录撞 id
+    runs.push({ ...record, id: crypto.randomUUID(), created_at: new Date().toISOString() });
     if (runs.length > 10000) runs = runs.slice(-10000);
     this.save();
   },
@@ -108,6 +114,19 @@ const LBDB = {
     return false;
   },
   top(classId, type, limit = 100) {
+    // 全部职业：汇总所有 `${class}:${type}` 键，同一玩家取最高分去重
+    if (classId === 'all') {
+      const best = new Map();
+      for (const [key, entries] of Object.entries(leaderboards)) {
+        if (!key.endsWith(':' + type)) continue;
+        const cls = key.slice(0, key.lastIndexOf(':'));
+        for (const [pid, e] of Object.entries(entries)) {
+          const prev = best.get(pid);
+          if (!prev || e.score > prev.score) best.set(pid, { player_id: pid, class_id: cls, ...e });
+        }
+      }
+      return [...best.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+    }
     const key = `${classId}:${type}`;
     const entries = leaderboards[key] || {};
     return Object.entries(entries)
@@ -116,8 +135,14 @@ const LBDB = {
       .slice(0, limit);
   },
   reset(classId, type) {
-    const key = `${classId}:${type}`;
-    leaderboards[key] = {};
+    if (classId === 'all') {
+      // 全部职业：清空该类型的所有职业榜单
+      for (const key of Object.keys(leaderboards)) {
+        if (key.endsWith(':' + type)) delete leaderboards[key];
+      }
+    } else {
+      leaderboards[`${classId}:${type}`] = {};
+    }
     this.save();
   },
   save() { saveJSON('leaderboards.json', leaderboards); },
@@ -162,53 +187,26 @@ const SkillDB = {
     return true;
   },
   _defaultSkills() {
-    // 与客户端 config.js 保持一致的默认技能定义
-    return {
-      magic_missile: { name: '魔法飞弹', flow: '灾厄流', behavior: 'missile', desc: '自动追踪的灾厄飞弹', tags: ['灾厄', '投射'], projectile: 'projectiles/magic_missile.png', icon: 'icons/magic_missile.png',
-        levels: [{ dmg: 8, cd: 1.0, count: 1 }, { dmg: 12, cd: 0.95, count: 1 }, { dmg: 16, cd: 0.9, count: 2 }, { dmg: 20, cd: 0.85, count: 2 }, { dmg: 24, cd: 0.8, count: 3 }] },
-      fireball: { name: '爆裂火球', flow: '火焰流', behavior: 'fireball', desc: '爆炸范围伤害', tags: ['火焰', '投射', '范围'], projectile: 'projectiles/fireball.png', icon: 'icons/fireball.png',
-        levels: [{ dmg: 15, cd: 2.0, count: 1, radius: 40 }, { dmg: 23, cd: 1.9, count: 1, radius: 45 }, { dmg: 31, cd: 1.8, count: 1, radius: 50 }, { dmg: 39, cd: 1.7, count: 2, radius: 55 }, { dmg: 47, cd: 1.6, count: 2, radius: 60 }] },
-      doom_aura: { name: '灾厄光环', flow: '灾厄流', behavior: 'doom_aura', desc: '削弱光环内敌人的抗性', tags: ['灾厄', '光环'], icon: 'icons/doom_aura.png',
-        levels: [{ radius: 200, resDown: 0.15 }, { radius: 210, resDown: 0.20 }, { radius: 220, resDown: 0.25 }, { radius: 230, resDown: 0.30 }, { radius: 250, resDown: 0.35 }] },
-      fire_attunement: { name: '炎附', flow: '火焰流', behavior: 'buff_fire', desc: '周期点燃所有攻击，附加火伤', tags: ['火焰', '附伤'], icon: 'icons/fire_attunement.png',
-        levels: [{ dmg: 5, dur: 6, cd: 8 }, { dmg: 8, dur: 7, cd: 7.5 }, { dmg: 11, dur: 8, cd: 7 }, { dmg: 14, dur: 9, cd: 6.5 }, { dmg: 17, dur: 10, cd: 6 }] },
-      thunder_mark: { name: '感电烙印', flow: '雷霆流', behavior: 'buff_thunder', desc: '周期标记敌人，受击时追加雷伤', tags: ['雷霆', '附伤'], icon: 'icons/thunder_mark.png',
-        levels: [{ dmg: 8, dur: 4, cd: 6 }, { dmg: 12, dur: 4.5, cd: 5.5 }, { dmg: 16, dur: 5, cd: 5 }, { dmg: 20, dur: 5.5, cd: 4.5 }, { dmg: 24, dur: 6, cd: 4 }] },
-      chain_lightning: { name: '弹射闪电', flow: '雷霆流', behavior: 'chain', desc: '闪电在敌人间弹射', tags: ['雷霆', '投射', '连锁'], icon: 'icons/chain_lightning.png',
-        levels: [{ dmg: 12, cd: 3.0, chains: 3, decay: 0.20 }, { dmg: 18, cd: 2.8, chains: 3, decay: 0.18 }, { dmg: 24, cd: 2.6, chains: 4, decay: 0.16 }, { dmg: 30, cd: 2.4, chains: 4, decay: 0.14 }, { dmg: 36, cd: 2.2, chains: 5, decay: 0.12 }] },
-      taoist_thunder_bolt: { name: '天雷击', flow: '雷霆流', behavior: 'bolt', desc: '对最肉敌人落雷', tags: ['雷霆', '投射', '爆发'], icon: 'icons/thunder_bolt.png',
-        levels: [{ dmg: 25, cd: 3.5, crit: 0.05 }, { dmg: 37, cd: 3.35, crit: 0.08 }, { dmg: 49, cd: 3.2, crit: 0.11 }, { dmg: 61, cd: 3.05, crit: 0.14 }, { dmg: 73, cd: 2.9, crit: 0.17 }] },
-      taoist_thunder_cloud: { name: '雷云', flow: '雷霆流', behavior: 'cloud', desc: '头顶雷云周期放电', tags: ['雷霆', '光环'], icon: 'icons/thunder_cloud.png',
-        levels: [{ dmg: 6, interval: 1.5, radius: 250, dur: 8 }, { dmg: 9, interval: 1.4, radius: 260, dur: 9 }, { dmg: 12, interval: 1.3, radius: 270, dur: 10 }, { dmg: 15, interval: 1.2, radius: 280, dur: 11 }, { dmg: 18, interval: 1.1, radius: 300, dur: 12 }] },
-      taoist_paralyze_zone: { name: '麻痹领域', flow: '雷霆流', behavior: 'paralyze', desc: '地面电场减速+定身', tags: ['雷霆', '区域', '控制'], icon: 'icons/paralysis_field.png',
-        levels: [{ dmg: 4, cd: 6, slow: 0.40, stun: 0.15, radius: 60 }, { dmg: 6, cd: 5.8, slow: 0.45, stun: 0.18, radius: 65 }, { dmg: 8, cd: 5.6, slow: 0.50, stun: 0.21, radius: 70 }, { dmg: 10, cd: 5.4, slow: 0.55, stun: 0.24, radius: 75 }, { dmg: 12, cd: 5.2, slow: 0.60, stun: 0.30, radius: 80 }] },
-      taoist_burn_curse: { name: '燃烧咒', flow: '火焰流', behavior: 'curse', desc: '点燃目标并传染', tags: ['火焰', '附伤', '持续'], icon: 'icons/burn_curse.png',
-        levels: [{ dmg: 10, dps: 4, burnDur: 3, spread: 80, cd: 5 }, { dmg: 15, dps: 6, burnDur: 3.5, spread: 85, cd: 4.8 }, { dmg: 20, dps: 8, burnDur: 4, spread: 90, cd: 4.6 }, { dmg: 25, dps: 10, burnDur: 4.5, spread: 95, cd: 4.4 }, { dmg: 30, dps: 12, burnDur: 5, spread: 100, cd: 4.2 }] },
-      taoist_fire_wall: { name: '火墙', flow: '火焰流', behavior: 'wall', desc: '地面火焰带', tags: ['火焰', '区域'], icon: 'icons/fire_wall.png',
-        levels: [{ dmg: 12, cd: 5, dur: 5, radius: 60 }, { dmg: 18, cd: 4.8, dur: 5.5, radius: 65 }, { dmg: 24, cd: 4.6, dur: 6, radius: 70 }, { dmg: 30, cd: 4.4, dur: 6.5, radius: 75 }, { dmg: 36, cd: 4.2, dur: 7, radius: 80 }] },
-      taoist_ignite_explode: { name: '焚身爆', flow: '火焰流', behavior: 'passive', desc: '灼烧敌人死亡时爆炸', tags: ['火焰', '区域', '被动'], icon: 'icons/taoist_ignite_explode.png',
-        levels: [{ dmg: 15, radius: 60 }, { dmg: 23, radius: 65 }, { dmg: 31, radius: 70 }, { dmg: 39, radius: 75 }, { dmg: 47, radius: 80 }] },
-      taoist_summon_skeleton: { name: '召唤骷髅', flow: '召唤流', behavior: 'summon_melee', desc: '召唤近战骷髅兵', tags: ['召唤'], icon: 'icons/summon_skeleton.png',
-        levels: [{ dmg: 6, hp: 30, cd: 6, max: 3 }, { dmg: 9, hp: 40, cd: 5.7, max: 3 }, { dmg: 12, hp: 50, cd: 5.4, max: 4 }, { dmg: 15, hp: 60, cd: 5.1, max: 4 }, { dmg: 18, hp: 70, cd: 4.8, max: 5 }] },
-      taoist_summon_archer: { name: '骷髅射手', flow: '召唤流', behavior: 'summon_archer', desc: '召唤远程骷髅射手', tags: ['召唤'], icon: 'icons/skeleton_archer.png',
-        levels: [{ dmg: 8, hp: 20, cd: 7, range: 250 }, { dmg: 12, hp: 28, cd: 6.7, range: 260 }, { dmg: 16, hp: 36, cd: 6.4, range: 270 }, { dmg: 20, hp: 44, cd: 6.1, range: 280 }, { dmg: 24, hp: 52, cd: 5.8, range: 300 }] },
-      taoist_raise_dead: { name: '亡者复苏', flow: '召唤流', behavior: 'passive', desc: '击杀概率复活骷髅，召唤物击杀概率翻倍', tags: ['召唤', '被动'], icon: 'icons/taoist_raise_dead.png',
-        levels: [{ chance: 0.40, hp: 15, max: 6 }, { chance: 0.45, hp: 20, max: 7 }, { chance: 0.50, hp: 25, max: 8 }, { chance: 0.55, hp: 30, max: 9 }, { chance: 0.60, hp: 35, max: 10 }] },
-      taoist_skull_enhance: { name: '骷髅强化', flow: '召唤流', behavior: 'passive', desc: '全局骷髅属性加成', tags: ['召唤', '被动'], icon: 'icons/taoist_skull_enhance.png',
-        levels: [{ atkMult: 0.30, hpMult: 0.30 }, { atkMult: 0.40, hpMult: 0.40 }, { atkMult: 0.50, hpMult: 0.50 }, { atkMult: 0.60, hpMult: 0.60 }, { atkMult: 0.80, hpMult: 0.80 }] },
-      taoist_corpse_burst: { name: '尸爆', flow: '召唤流', behavior: 'passive', desc: '骷髅死亡时爆炸', tags: ['召唤', '区域', '被动'], icon: 'icons/taoist_corpse_burst.png',
-        levels: [{ dmg: 12, radius: 70 }, { dmg: 18, radius: 75 }, { dmg: 24, radius: 80 }, { dmg: 30, radius: 85 }, { dmg: 36, radius: 90 }] },
-      iron_skin: { name: '钢铁皮肤', flow: '存续流', behavior: 'iron_skin', desc: '被动减伤，与护甲加算封顶30%', tags: ['防御', '被动'], icon: 'icons/frost_iron_wall.png',
-        levels: [{ dr: 0.06 }, { dr: 0.09 }, { dr: 0.12 }, { dr: 0.15 }, { dr: 0.18 }] },
-      vitality: { name: '生命祝福', flow: '存续流', behavior: 'vitality', desc: '被动增加生命上限', tags: ['防御', '被动'], icon: 'icons/holy_obelisk.png',
-        levels: [{ hp: 25 }, { hp: 35 }, { hp: 45 }, { hp: 55 }, { hp: 70 }] },
-      ice_barrier: { name: '冰霜结界', flow: '存续流', behavior: 'ice_barrier', desc: '周期凝结冰盾，减速周围，破裂冻结', tags: ['防御', '控制'], icon: 'icons/ice_barrier.png',
-        levels: [{ cd: 12, shield: 30, dur: 4, slow: 0.25, freeze: 1.0 }, { cd: 12, shield: 45, dur: 4.5, slow: 0.30, freeze: 1.25 }, { cd: 11, shield: 60, dur: 5, slow: 0.35, freeze: 1.5 }, { cd: 11, shield: 75, dur: 5.5, slow: 0.40, freeze: 1.75 }, { cd: 10, shield: 95, dur: 6, slow: 0.45, freeze: 2.0 }] },
-      ice_shard: { name: '冰锥术', flow: '冰霜流', behavior: 'ice_shard', desc: '发射穿透冰锥，命中减速', tags: ['冰霜', '投射', '控制'], projectile: 'projectiles/ice_shard.png', icon: 'icons/ice_shard.png',
-        levels: [{ dmg: 10, cd: 1.8, count: 1, slow: 0.20, pierce: 2 }, { dmg: 14, cd: 1.7, count: 1, slow: 0.25, pierce: 2 }, { dmg: 18, cd: 1.6, count: 2, slow: 0.30, pierce: 3 }, { dmg: 22, cd: 1.5, count: 2, slow: 0.35, pierce: 3 }, { dmg: 28, cd: 1.4, count: 3, slow: 0.40, pierce: 4 }] },
-      stone_golem: { name: '石魔像', flow: '召唤流', behavior: 'stone_golem', desc: '召唤高生命石魔像，嘲讽周围敌人', tags: ['召唤', '防御'], icon: 'icons/holy_guardian.png',
-        levels: [{ dmg: 8, hp: 120, cd: 12, max: 1, tauntR: 150 }, { dmg: 11, hp: 160, cd: 11, max: 1, tauntR: 170 }, { dmg: 14, hp: 200, cd: 10, max: 2, tauntR: 190 }, { dmg: 17, hp: 250, cd: 9, max: 2, tauntR: 210 }, { dmg: 22, hp: 320, cd: 8, max: 3, tauntR: 240 }] },
-    };
+    // 单一事实源：直接从客户端 js/config.js 读取技能定义（vm 执行纯对象模块），
+    // 彻底消灭服务端手工复制导致的字段漂移（如 atk/atkMult 不一致 → 召唤物 NaN）
+    try {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'config.js'), 'utf8');
+      const ctx = vm.createContext({ console });
+      vm.runInContext(src, ctx, { filename: 'config.js' });
+      const clientSkills = vm.runInContext('CONFIG.skills', ctx);
+      const out = {};
+      for (const [id, s] of Object.entries(clientSkills)) {
+        out[id] = {
+          name: s.name, flow: s.flow, behavior: s.behavior, desc: s.desc,
+          tags: s.tags || [], icon: s.icon, projectile: s.projectile || null,
+          levels: JSON.parse(JSON.stringify(s.levels)),
+        };
+      }
+      return out;
+    } catch (e) {
+      console.error('[db] load client skills failed:', e.message);
+      return {};
+    }
   },
   save() { saveJSON('skills.json', skills); },
 };
@@ -298,7 +296,7 @@ const ConfigDB = {
     return {
       version: 1,
       // 经济系统（局外）
-      economy: { expMult: 0.3, timeMult: 0.5, goldKillMult: 0.1, goldTimeMult: 0.05, expNeedBase: 20, expNeedLinear: 15, expNeedQuad: 0.8 },
+      economy: { expNeedBase: 20, expNeedLinear: 15, expNeedQuad: 0.8 },
       // 局内经验曲线（玩家升级）
       playerExp: { base: 5, linear: 3, quad: 0.35 },
       // 结算奖励公式

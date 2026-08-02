@@ -233,6 +233,14 @@ const UI = {
     ctx.textAlign = 'center';
     ctx.fillText(Player.level, px, py + 45);
 
+    // 已装备武器角标（开局 banner 之外的常驻提示）
+    if (Player._weaponName) {
+      ctx.font = '12px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#c9a86a';
+      ctx.fillText('⚔ ' + Player._weaponName, px, 166);
+    }
+
     // 血条
     this.bar(ctx, 108, 74, 300, 20, Player.hp / Player.maxHp, '#c0392b', '#5a1512', Math.ceil(Player.hp) + ' / ' + Player.maxHp);
 

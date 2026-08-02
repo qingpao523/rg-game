@@ -19,7 +19,9 @@
 <script>
   // ===== 缓存策略（只下载更新的，没变更的走缓存不重下）=====
   // GAME_VERSION：代码版本，改代码时才升，JS 按它做缓存键（变了才重新下载 JS）
-  window.GAME_VERSION = '1.1.8';
+  // 由服务器按 js/ 目录内容指纹注入；file:// 直开时回退手动版本号
+  window.GAME_VERSION = '__GAME_VERSION__';
+  if (window.GAME_VERSION.indexOf('GAME_VERSION') !== -1) window.GAME_VERSION = '1.1.8';
   // ASSET_VER：图片资源内容哈希，由服务器注入替换下面这行的占位符。
   // 图片按它做缓存键——图片内容不变则 URL 不变走缓存；变了才换 URL 重新下载。
   window.ASSET_VER = '__ASSET_VER__';
@@ -28,12 +30,32 @@
   (function () {
     var scripts = ['config', 'assets', 'engine', 'player', 'skills', 'enemies', 'ui', 'audio', 'storage', 'talents', 'wheel', 'craft', 'main'];
     var idx = 0;
+    var retries = {};
+    var loaded = {};
     function loadNext() {
       if (idx >= scripts.length) return;
+      var name = scripts[idx];
+      var key = name + ':' + window.GAME_VERSION;
       var s = document.createElement('script');
-      s.src = 'js/' + scripts[idx] + '.js?v=' + window.GAME_VERSION;
-      s.onload = function () { idx++; loadNext(); };
-      s.onerror = function () { console.error('[loader] 加载失败: ' + s.src); };
+      s.src = 'js/' + name + '.js?v=' + window.GAME_VERSION + (retries[key] ? '&r=' + retries[key] : '');
+      var failed = false;
+      var fail = function () {
+        if (failed || loaded[key]) return;
+        failed = true;
+        retries[key] = (retries[key] || 0) + 1;
+        if (retries[key] <= 2) {
+          console.warn('[loader] 加载失败，重试 ' + retries[key] + '/2: ' + s.src);
+          setTimeout(loadNext, 500);
+        } else {
+          console.error('[loader] 永久失败，跳过: ' + name + '.js');
+          idx++;
+          loadNext();
+        }
+      };
+      s.onload = function () { loaded[key] = true; clearTimeout(s._watchdog); idx++; loadNext(); };
+      s.onerror = fail;
+      // 看门狗：脚本 10s 未完成也按失败处理，避免单文件挂起卡死整个游戏
+      s._watchdog = setTimeout(fail, 10000);
       document.head.appendChild(s);
     }
     loadNext();

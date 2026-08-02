@@ -9,7 +9,7 @@ const Storage = {
     return {
       level: 1, exp: 0, gold: 0, shards: 0,
       generalTalentPoints: 0, specialistTalentPoints: 0,
-      talents: {}, unlockedWeapons: [], achievements: [],
+      talents: {}, achievements: [],
       stats: { runs: 0, kills: 0, bestTime: 0, bestKills: 0, totalExp: 0, evos: 0 },
     };
   },
@@ -17,14 +17,17 @@ const Storage = {
   Load() {
     if (this._cache) return this._cache;
     let d;
+    let parsed = null;
     try {
       const raw = localStorage.getItem(this.KEY);
-      d = raw ? Object.assign(this.defaultData(), JSON.parse(raw) || {}) : this.defaultData();
+      parsed = raw ? JSON.parse(raw) : null;
+      d = Object.assign(this.defaultData(), parsed || {});
     } catch (e) { d = this.defaultData(); }
     // P3 迁移：旧版 talentPoints → 新版双池
-    if (d.talentPoints !== undefined && d.generalTalentPoints === undefined) {
-      d.generalTalentPoints = d.talentPoints;
-      d.specialistTalentPoints = d.talentPoints;
+    // 判断必须基于原始存档（默认值合并后新字段已是 0，旧条件永远不成立）
+    if (parsed && typeof parsed.talentPoints === 'number' && parsed.generalTalentPoints === undefined) {
+      d.generalTalentPoints = (d.generalTalentPoints || 0) + parsed.talentPoints;
+      d.specialistTalentPoints = (d.specialistTalentPoints || 0) + parsed.talentPoints;
       delete d.talentPoints;
     }
     this._cache = d;
@@ -156,6 +159,19 @@ const Storage = {
   SERVER_URL: (typeof location !== 'undefined' && (location.protocol === 'http:' || location.protocol === 'https:'))
     ? location.origin : 'http://localhost:3000',
   _token: null,
+  _loginPromise: null,
+
+  // 登录只跑一次，多调用方（结算上报/存档同步）共享同一 Promise，避免并发重复登录
+  async _ensureLogin() {
+    if (this._token) return true;
+    if (!this._loginPromise) {
+      this._loginPromise = this.loginToServer()
+        .then(() => !!this._token)
+        .catch(() => false)
+        .finally(() => { this._loginPromise = null; });
+    }
+    return this._loginPromise;
+  },
 
   // 获取/生成稳定的玩家 ID（存本地，跨会话不变）
   getPlayerId() {
@@ -169,20 +185,20 @@ const Storage = {
 
   async loginToServer() {
     try {
-      const res = await fetch(this.SERVER_URL + '/api/auth/login', {
+      const res = await fetch(this.SERVER_URL + '/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: 'web', playerId: this.getPlayerId() }),
       });
       const j = await res.json();
-      this._token = j.token;
+      if (!res.ok || !j.playerId) return null;
+      this._token = j.token || ('local-' + j.playerId); // 旧服务端无 token 字段时本地兜底标记
       return j.player;
     } catch (e) { console.warn('[storage] server login failed:', e.message); return null; }
   },
 
   async syncToServer() {
-    if (!this._token) await this.loginToServer();
-    if (!this._token) return null;
+    if (!(await this._ensureLogin())) return null;
     try {
       const d = this.Load();
       const res = await fetch(this.SERVER_URL + '/api/player/sync', {
@@ -201,7 +217,7 @@ const Storage = {
   },
 
   async _reportToServer(report) {
-    if (!this._token) return; // 未登录不阻塞
+    if (!(await this._ensureLogin())) return; // 未登录不阻塞
     const st = (typeof CONFIG !== 'undefined' && CONFIG._remoteSettlement) || {};
     const expPerKill = st.expPerKill != null ? st.expPerKill : 0.3;
     const expPerSecond = st.expPerSecond != null ? st.expPerSecond : 0.5;
@@ -215,7 +231,14 @@ const Storage = {
           playerId: this.getPlayerId(),
           class_id: Game.classId, wave: report.wave, time_seconds: Math.round(report.time),
           kills: report.kills, evolutions: report.evoCount,
-          skills: (report.build || []).map(b => b.name),
+          level: report.level,
+          skills: (report.build || []).map(b => ({ id: b.id, name: b.name, lv: b.lv, evo: !!b.evo })),
+          talents: report.talents || {},
+          weapon: report.weapon || '',
+          weapon_effect: report.weaponEffect || '',
+          weapons: report.weapons || [],
+          final_hp: report.finalHp,
+          max_hp: report.maxHp,
           flow: report.flow || '',
           exp_earned: Math.round(report.kills * expPerKill + report.time * expPerSecond),
           gold_earned: Math.round(report.kills * goldPerKill + report.time * goldPerSecond),

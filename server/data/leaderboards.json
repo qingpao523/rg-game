@@ -1,26 +1,40 @@
 {
  "taoist:survival": {
-  "34a4fd72-548d-416d-9d8e-23e878c50420": {
-   "score": 487,
-   "name": "执契者·34a4fd",
-   "updated_at": "2026-07-25T14:55:27.233Z"
+  "web_2fa36b5d-c0e": {
+   "score": 139,
+   "name": "执契者·web_2f",
+   "updated_at": "2026-07-31T14:16:21.280Z"
   },
-  "web_test123": {
-   "score": 487,
-   "name": "执契者·web_te",
-   "updated_at": "2026-07-25T18:29:43.751Z"
+  "web_ca5fcea1-f25": {
+   "score": 530,
+   "name": "执契者·web_ca",
+   "updated_at": "2026-08-01T23:19:10.388Z"
   }
  },
  "taoist:kills": {
-  "34a4fd72-548d-416d-9d8e-23e878c50420": {
-   "score": 342,
-   "name": "执契者·34a4fd",
-   "updated_at": "2026-07-25T14:55:27.233Z"
+  "web_2fa36b5d-c0e": {
+   "score": 215,
+   "name": "执契者·web_2f",
+   "updated_at": "2026-07-31T14:16:21.281Z"
   },
-  "web_test123": {
-   "score": 342,
-   "name": "执契者·web_te",
-   "updated_at": "2026-07-25T18:29:43.752Z"
+  "web_ca5fcea1-f25": {
+   "score": 447,
+   "name": "执契者·web_ca",
+   "updated_at": "2026-08-01T23:19:10.389Z"
+  }
+ },
+ "ice_witch:survival": {
+  "web_ca5fcea1-f25": {
+   "score": 335,
+   "name": "执契者·web_ca",
+   "updated_at": "2026-08-02T02:53:43.053Z"
+  }
+ },
+ "ice_witch:kills": {
+  "web_ca5fcea1-f25": {
+   "score": 1623,
+   "name": "执契者·web_ca",
+   "updated_at": "2026-08-02T02:53:43.054Z"
   }
  }
 }

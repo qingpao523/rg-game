@@ -28,6 +28,9 @@ const Player = {
     this.damageReduction = 0;
     this.maxHpBonus = 0;
     this.dead = false;
+    this._weaponEffect = null;
+    this._weaponName = '';
+    this._weaponKillAmpT = 0;
 
     // P3 v2.0：应用局外天赋加成（百分比制）
     if (typeof Talents !== 'undefined') {
@@ -48,6 +51,7 @@ const Player = {
     this.unbreakableCd = 0;                      // 不屈意志冷却
     this.immortalCd = 0; this.immortalT = 0;     // 不朽
     this.chainSlashT = 0;                        // 连斩增伤窗口
+    this._weaponKillAmpT = 0;                    // 武器·村正妖刀增伤窗口
     this._outOfCombat = 0;                       // 永动之躯：脱战计时
   },
 
@@ -84,6 +88,7 @@ const Player = {
     this.immortalCd = Math.max(0, this.immortalCd - dt);
     this.immortalT = Math.max(0, this.immortalT - dt);
     this.chainSlashT = Math.max(0, this.chainSlashT - dt);
+    this._weaponKillAmpT = Math.max(0, this._weaponKillAmpT - dt);
 
     const tb = this.talentBonus;
 
@@ -273,8 +278,11 @@ const Player = {
   // 武士：一闪 —— 无敌突进斩，击杀返还冷却
   cast_flash_slash(d) {
     const tb = this.talentBonus || {};
+    const w = this._weaponEffect;
     // 连斩：上次一闪击杀后窗口内，本次伤害 +30%/+60%
     let dmgMult = this.chainSlashT > 0 && tb.chainSlash ? 1 + tb.chainSlash : 1;
+    // 武器·村正妖刀：击杀后 3s 内下次一闪伤害 +50%
+    if (w && w.type === 'kill_amp' && this._weaponKillAmpT > 0) dmgMult *= 1 + w.value;
     // 血刃狂歌：生命 <50% 时伤害 +50%
     if (tb.bloodBlade && this.hp < this.maxHp * 0.5) dmgMult *= 1.5;
     const finalDmg = Math.round(d.dmg * dmgMult);
@@ -314,12 +322,23 @@ const Player = {
       }
       const ang = Math.atan2(fy, fx);
       FX.imgFx('effects/flash_slash_vfx.png', (px + nx) / 2, (py + ny) / 2, 200, { life: 0.35, rot: ang, scale1: 1.25 });
+      // 武器·无名刀：路径留下残影剑气（40% 伤害）
+      if (w && w.type === 'slash_after') {
+        Skills.zones.push({
+          kind: 'slash_trail', x: (px + nx) / 2, y: (py + ny) / 2,
+          ang, len: segLen, halfW: 52,
+          t: 0, dur: 2, tick: 0,
+          dmg: Math.round(d.dmg * w.value),
+        });
+      }
       px = nx; py = ny;
     }
     this.x = px; this.y = py;
     this.iframes = Math.max(this.iframes, invuln);
     // 连斩：有击杀则开启增伤窗口（3s/5s）
     if (tb.chainSlash && kills > 0) this.chainSlashT = tb.chainSlash >= 0.6 ? 5 : 3;
+    // 武器·村正妖刀：击杀后开启增伤窗口
+    if (w && w.type === 'kill_amp' && kills > 0) this._weaponKillAmpT = 3;
     // 居合：击杀返还额外 +10%/+20%
     const killCdBonus = tb.iaiKill || 0;
     this.activeCd = Math.max(0.5, this.activeCd - this.activeCdMax * (d.killCd + killCdBonus) * kills);
@@ -342,12 +361,15 @@ const Player = {
   // 寒冰女巫：极寒领域 —— 脚下冰域
   cast_frozen_field(d) {
     const tb = this.talentBonus;
+    const w = this._weaponEffect;
     const aoeMult = tb && tb.aoePct ? 1 + tb.aoePct : 1;
+    // 武器·霜之哀伤：极寒领域半径 +20%
+    const weaponRange = w && w.type === 'field_range' ? 1 + w.value : 1;
     // 冰河时代：连续 3 次冰霜新星，每次范围扩大
     const novas = tb && tb.iceAge ? 3 : 1;
     for (let i = 0; i < novas; i++) {
       Skills.zones.push({
-        kind: 'frozen', x: this.x, y: this.y, r: Math.round(d.radius * aoeMult * (1 + 0.15 * i)),
+        kind: 'frozen', x: this.x, y: this.y, r: Math.round(d.radius * aoeMult * weaponRange * (1 + 0.15 * i)),
         t: -i * 0.4, dur: 6 + i * 0.4, tick: 0,
         dps: d.dps, slow: d.slow, shatter: d.shatter, lv: this.activeLv(),
         iceAge: !!(tb && tb.iceAge),
@@ -359,14 +381,19 @@ const Player = {
   // 十字军：圣盾冲阵 —— 护盾 + 推进
   cast_holy_shield(d) {
     const tb = this.talentBonus;
+    const w = this._weaponEffect;
     // 不屈圣盾：护盾上限 +50%
     const shieldMult = tb && tb.unbreakableShield ? 1.5 : 1;
-    this.shield = { hp: Math.round(d.absorb * shieldMult), t: 5, convert: d.convert, absorbed: 0 };
+    // 武器·铁壁盾：护盾上限 +20
+    const weaponShield = w && w.type === 'shield_hp' ? Math.round(w.value) : 0;
+    this.shield = { hp: Math.round(d.absorb * shieldMult) + weaponShield, t: 5, convert: d.convert, absorbed: 0 };
     const fx = this.faceX || 1, fy = this.faceY || 0;
     const nx = this.x + fx * 220, ny = this.y + fy * 220;
+    // 武器·圣光战锤：圣盾冲阵判定范围 +30%
+    const reachMult = w && w.type === 'charge_knock' ? 1 + w.value : 1;
     for (const e of Enemies.list) {
       if (e.dead) continue;
-      if (M.segDist(e.x, e.y, this.x, this.y, nx, ny) < 80 + e.r) {
+      if (M.segDist(e.x, e.y, this.x, this.y, nx, ny) < (80 + e.r) * reachMult) {
         Enemies.hurt(e, d.dmg, { color: '#ffe9a8' });
       }
     }

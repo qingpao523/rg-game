@@ -69,6 +69,14 @@
     <!-- 对局记录 -->
     <section id="page-runs" class="page">
       <h2>对局记录</h2>
+      <details class="help-box">
+        <summary>📖 说明</summary>
+        <ul>
+          <li>这里显示玩家真实对局，玩家打完一局（死亡结算后）会自动上报，不用手动添加。</li>
+          <li>可以用上方筛选按职业 / 最低波次 / 最低击杀查看。</li>
+          <li>📄 完整版说明：<a href="/docs/admin-guide.md" target="_blank">docs/admin-guide.md</a></li>
+        </ul>
+      </details>
       <div class="toolbar">
         <select id="run-class-filter" onchange="AdminApp.loadRuns()">
           <option value="">全部职业</option>
@@ -83,7 +91,7 @@
         <button onclick="AdminApp.loadRuns()">筛选</button>
       </div>
       <table class="data-table" id="runs-table">
-        <thead><tr><th>ID</th><th>玩家</th><th>职业</th><th>波次</th><th>存活</th><th>击杀</th><th>进化</th><th>流派</th><th>经验</th><th>金币</th><th>碎片</th><th>时间</th></tr></thead>
+        <thead><tr><th>ID</th><th>玩家</th><th>职业</th><th>波次</th><th>存活</th><th>击杀</th><th>进化</th><th>流派</th><th>经验</th><th>金币</th><th>碎片</th><th>时间</th><th>详情</th></tr></thead>
         <tbody id="runs-body"></tbody>
       </table>
       <div class="pagination" id="runs-pagination"></div>
@@ -92,6 +100,17 @@
     <!-- 技能管理 -->
     <section id="page-skills" class="page">
       <h2>技能管理</h2>
+      <details class="help-box">
+        <summary>📖 使用说明（小白版）</summary>
+        <ul>
+          <li>改数值：点「编辑」→ 改「等级数值表」里的数字 → 点「保存技能」。一个花括号是一级，<b>字段名不要删不要改</b>，数值随便填。</li>
+          <li>例：魔法飞弹 Lv.1 伤害 8 → 20，就把第一行 <code>{"dmg":8}</code> 改成 <code>{"dmg":20}</code>。</li>
+          <li>「行为」是技能在代码里的类型（missile、fireball…），<b>不要乱改</b>，改成未实现的类型技能会失效。</li>
+          <li>新增技能：必须复制已有技能的行为（如 <code>ice_shard</code>），否则不会生效。</li>
+          <li>删除不可恢复；保存后玩家刷新页面（或等 60 秒）即生效，不用重启服务器。</li>
+          <li>📄 完整版说明：<a href="/docs/admin-guide.md" target="_blank">docs/admin-guide.md</a></li>
+        </ul>
+      </details>
       <div class="toolbar">
         <button class="btn-primary" onclick="AdminApp.showSkillEditor(null)">+ 新建技能</button>
       </div>
@@ -110,6 +129,7 @@
               <label>名称 <input type="text" id="sk-name" placeholder="如 冰锥术"></label>
               <label>流派 <input type="text" id="sk-flow" placeholder="如 冰霜流"></label>
               <label>行为 <input type="text" id="sk-behavior" placeholder="如 ice_shard"></label>
+              <div class="field-hint">⚠️ 行为对应代码实现，改错技能会失效；新增技能请复制已有技能的行为（如 ice_shard）。</div>
               <label>描述 <input type="text" id="sk-desc" placeholder="技能描述"></label>
               <label>标签 <input type="text" id="sk-tags" placeholder="逗号分隔，如 冰霜,投射,控制"></label>
               <label>投射物 <input type="text" id="sk-projectile" placeholder="如 projectiles/ice_shard.png"></label>
@@ -120,6 +140,7 @@
             <div class="skill-editor-right">
               <h4>等级数值表（每行一级，JSON 格式）</h4>
               <textarea id="sk-levels" rows="12" placeholder='[{"dmg":10,"cd":1.8,"count":1},{"dmg":14,"cd":1.7,"count":1}]'></textarea>
+              <div class="field-hint">💡 每个花括号是一级，字段名照抄原样、只改数字。例：<code>[{"dmg":8,"cd":1.0,"count":1}]</code>。保存前建议先复制一份原内容留底。</div>
               <div class="skill-editor-actions">
                 <button class="btn-primary" onclick="AdminApp.saveSkill()">保存技能</button>
                 <button onclick="AdminApp.closeModal('skill-editor-modal')">取消</button>
@@ -133,6 +154,16 @@
     <!-- 游戏配置 -->
     <section id="page-config" class="page">
       <h2>游戏配置</h2>
+      <details class="help-box">
+        <summary>📖 使用说明（小白版）</summary>
+        <ul>
+          <li>直接改数字或开关，改完点页面底部「保存并发布」；每次保存版本号 +1。</li>
+          <li>每个输入框下面标了允许范围，超范围会被拒绝并红框提示；有联动关系的字段（如"最小刷怪间隔 ≤ 初始间隔"）也会自动校验。</li>
+          <li>保存后玩家 60 秒内自动生效；玩家正在战斗时会提示「下一局生效」。</li>
+          <li>后端每版自动留历史（最近 30 份），但界面暂无回滚按钮，改坏了手动改回去再保存。</li>
+          <li>📄 完整版说明：<a href="/docs/admin-guide.md" target="_blank">docs/admin-guide.md</a></li>
+        </ul>
+      </details>
       <div id="config-editor"></div>
       <div class="toolbar" style="margin-top:16px">
         <button class="btn-primary" id="save-config-btn" onclick="AdminApp.saveConfig()">保存并发布</button>
@@ -143,6 +174,13 @@
     <!-- 排行榜 -->
     <section id="page-leaderboard" class="page">
       <h2>排行榜管理</h2>
+      <details class="help-box">
+        <summary>📖 说明</summary>
+        <ul>
+          <li>排行榜来自玩家真实对局上报，按职业和类型（存活时间 / 击杀数）查看。</li>
+          <li>「重置」会清空对应榜单，不可恢复，谨慎使用。</li>
+        </ul>
+      </details>
       <div class="toolbar">
         <select id="lb-class" onchange="AdminApp.loadLeaderboard()">
           <option value="all">全部职业</option>
@@ -193,6 +231,16 @@
     <!-- 怪物管理 -->
     <section id="page-enemies" class="page">
       <h2>怪物管理</h2>
+      <details class="help-box">
+        <summary>📖 使用说明（小白版）</summary>
+        <ul>
+          <li>改现有怪物的血量 / 伤害 / 速度：点「编辑」→ 改数字 → 保存，玩家 60 秒内生效。</li>
+          <li>「HP 固定成长/波」= 每波增加多少固定血量；「HP 百分比成长/波」= 每波增加百分之几（0.08 = 8%）。</li>
+          <li>⚠️ 新增怪物：界面暂无「刷怪权重」字段，新怪暂时不会在常规波次刷出，需要后续补该字段。</li>
+          <li>删除不可恢复；图片路径要填 assets 里真实存在的图（如 enemies/grunt_move.png）。</li>
+          <li>📄 完整版说明：<a href="/docs/admin-guide.md" target="_blank">docs/admin-guide.md</a></li>
+        </ul>
+      </details>
       <div class="toolbar">
         <button class="btn-primary" onclick="AdminApp.showEnemyEditor(null)">+ 新增怪物</button>
       </div>
@@ -227,6 +275,25 @@
       </div>
     </section>
   </main>
+
+  <!-- AI 配置助手浮窗 -->
+  <button id="ai-chat-fab" class="ai-chat-fab" onclick="AdminApp.toggleChat()" title="AI 配置助手">🤖</button>
+  <div id="ai-chat-panel" class="ai-chat" style="display:none">
+    <div class="ai-chat-head">
+      <span class="ai-chat-title">🤖 AI 配置助手</span>
+      <select id="ai-chat-model" title="选择本地 Ollama 模型"></select>
+      <span id="ai-chat-kb" class="ai-chat-kb" title="AI 回答时使用的知识库内容">知识库…</span>
+      <button class="ai-chat-btn" onclick="AdminApp.clearChat()">清空</button>
+      <button class="ai-chat-btn" onclick="AdminApp.toggleChat()">×</button>
+    </div>
+    <div id="ai-chat-body" class="ai-chat-body">
+      <div class="ai-msg ai-msg-ai">你好，我是配置助手。当前游戏配置、技能、职业、武器已作为知识库载入，代码也会按问题自动检索。可以问：「怎么调低前期难度？」「武器效果在哪个文件实现？」「改技能数值要动哪里？」</div>
+    </div>
+    <div class="ai-chat-input">
+      <textarea id="ai-chat-text" rows="2" placeholder="问配置、问技能、问怎么改…（Enter 发送，Shift+Enter 换行）"></textarea>
+      <button id="ai-chat-send" class="btn-primary" onclick="AdminApp.sendChat()">发送</button>
+    </div>
+  </div>
 </div>
 
 <script src="/admin/app.js"></script>

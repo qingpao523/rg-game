@@ -15,49 +15,242 @@
   "created_at": "2026-07-25T14:54:54.844Z",
   "updated_at": "2026-07-25T14:54:54.844Z"
  },
- "34a4fd72-548d-416d-9d8e-23e878c50420": {
-  "id": "34a4fd72-548d-416d-9d8e-23e878c50420",
+ "web_2fa36b5d-c0e": {
+  "id": "web_2fa36b5d-c0e",
   "platform": "web",
-  "platform_uid": "85975add-c7af-4e36-a9f0-f47f8d221205",
-  "level": 5,
-  "exp": 320,
-  "gold": 1500,
-  "shards": 42,
-  "talent_points": 3,
+  "platform_uid": "web_2fa36b5d-c0e",
+  "name": "",
+  "level": 31,
+  "exp": 573,
+  "gold": 2804,
+  "shards": 132,
+  "generalTalentPoints": 6,
+  "specialistTalentPoints": 4,
   "talents": {
-   "g_dmg_1": 2
+   "G3": 3,
+   "G2": 5,
+   "P3": 3,
+   "P2": 2,
+   "I3": 3,
+   "G1": 5,
+   "I1": 3,
+   "G4": 5,
+   "I2": 3,
+   "G5": 3,
+   "I4": 2,
+   "I9": 1,
+   "I5": 2,
+   "G8": 1,
+   "G7": 1,
+   "G9": 1,
+   "G12": 1,
+   "P4": 2,
+   "P5": 2,
+   "P6": 2,
+   "P7": 1,
+   "P1": 1
   },
-  "weapons": {},
+  "weapons": {
+   "taoist": [
+    {
+     "id": "w_t1",
+     "owned": false
+    },
+    {
+     "id": "w_t2",
+     "owned": false
+    }
+   ],
+   "samurai": [
+    {
+     "id": "w_s1",
+     "owned": false
+    },
+    {
+     "id": "w_s2",
+     "owned": false
+    }
+   ],
+   "pharaoh": [
+    {
+     "id": "w_p1",
+     "owned": false
+    },
+    {
+     "id": "w_p2",
+     "owned": true
+    }
+   ],
+   "ice_witch": [
+    {
+     "id": "w_i1",
+     "owned": false
+    },
+    {
+     "id": "w_i2",
+     "owned": true
+    }
+   ],
+   "crusader": [
+    {
+     "id": "w_c1",
+     "owned": false
+    },
+    {
+     "id": "w_c2",
+     "owned": false
+    }
+   ]
+  },
   "achievements": [
-   "first_blood"
+   "first_blood",
+   "kill_50",
+   "best_kills",
+   "talent_first",
+   "level_10",
+   "kill_500",
+   "runs_10",
+   "survive_5min",
+   "survive_10min",
+   "gold_hoard",
+   "first_evo"
   ],
   "stats": {
-   "runs": 10,
-   "kills": 2847
+   "runs": 28,
+   "kills": 33805,
+   "bestTime": 1309.8258999989798,
+   "bestKills": 8839,
+   "totalExp": 15700,
+   "evos": 1
   },
-  "created_at": "2026-07-25T14:55:26.921Z",
-  "updated_at": "2026-07-25T14:55:27.133Z"
+  "banned": false,
+  "created_at": "2026-07-31T14:16:17.435Z",
+  "updated_at": "2026-07-31T14:16:21.283Z"
  },
- "web_test123": {
-  "id": "web_test123",
+ "web_633f1f7d-2e6": {
+  "id": "web_633f1f7d-2e6",
   "platform": "web",
-  "platform_uid": "web_test123",
+  "platform_uid": "web_633f1f7d-2e6",
   "name": "",
-  "level": 5,
+  "level": 1,
   "exp": 0,
-  "gold": 888,
-  "shards": 42,
+  "gold": 0,
+  "shards": 0,
   "generalTalentPoints": 0,
   "specialistTalentPoints": 0,
   "talents": {},
   "weapons": {},
   "achievements": [],
+  "stats": {},
+  "banned": false,
+  "created_at": "2026-07-31T14:57:21.405Z",
+  "updated_at": "2026-07-31T14:57:21.405Z"
+ },
+ "web_ca5fcea1-f25": {
+  "id": "web_ca5fcea1-f25",
+  "platform": "web",
+  "platform_uid": "web_ca5fcea1-f25",
+  "name": "",
+  "level": 23,
+  "exp": 717,
+  "gold": 1492,
+  "shards": 27,
+  "generalTalentPoints": 1,
+  "specialistTalentPoints": 5,
+  "talents": {
+   "G1": 5,
+   "G2": 5,
+   "G3": 3,
+   "I2": 3,
+   "I3": 3,
+   "I4": 2,
+   "I1": 3,
+   "I5": 2,
+   "I9": 1,
+   "G4": 5,
+   "C1": 1,
+   "T2": 2,
+   "G8": 1,
+   "G9": 1,
+   "G7": 1,
+   "T1": 3,
+   "T5": 1,
+   "G5": 1
+  },
+  "weapons": {
+   "taoist": [
+    {
+     "id": "w_t1",
+     "owned": false
+    },
+    {
+     "id": "w_t2",
+     "owned": false
+    }
+   ],
+   "samurai": [
+    {
+     "id": "w_s1",
+     "owned": false
+    },
+    {
+     "id": "w_s2",
+     "owned": false
+    }
+   ],
+   "pharaoh": [
+    {
+     "id": "w_p1",
+     "owned": false
+    },
+    {
+     "id": "w_p2",
+     "owned": false
+    }
+   ],
+   "ice_witch": [
+    {
+     "id": "w_i1",
+     "owned": true
+    },
+    {
+     "id": "w_i2",
+     "owned": false
+    }
+   ],
+   "crusader": [
+    {
+     "id": "w_c1",
+     "owned": false
+    },
+    {
+     "id": "w_c2",
+     "owned": false
+    }
+   ]
+  },
+  "achievements": [
+   "first_blood",
+   "kill_50",
+   "survive_5min",
+   "survive_10min",
+   "best_kills",
+   "level_10",
+   "talent_first",
+   "kill_500",
+   "runs_10",
+   "gold_hoard"
+  ],
   "stats": {
-   "runs": 10,
-   "kills": 2847
+   "runs": 18,
+   "kills": 11210,
+   "bestTime": 852.5666000002328,
+   "bestKills": 1623,
+   "totalExp": 7979,
+   "evos": 0
   },
   "banned": false,
-  "created_at": "2026-07-25T18:29:43.698Z",
-  "updated_at": "2026-07-25T18:29:43.698Z"
+  "created_at": "2026-08-01T08:35:21.398Z",
+  "updated_at": "2026-08-02T02:53:43.055Z"
  }
 }

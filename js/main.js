@@ -95,8 +95,9 @@ const Game = {
     // 怪物定义（逐怪深合并 + 支持删除同步 + spawnWeight）
     if (config.enemies) {
       for (const id in config.enemies) {
-        if (CONFIG.enemies[id]) Object.assign(CONFIG.enemies[id], config.enemies[id]);
-        else CONFIG.enemies[id] = config.enemies[id]; // 新增怪物
+        const sanitized = this._sanitizeEnemy(config.enemies[id], CONFIG.enemies[id] || null);
+        if (CONFIG.enemies[id]) Object.assign(CONFIG.enemies[id], sanitized);
+        else CONFIG.enemies[id] = sanitized; // 新增怪物
       }
       // 同步删除：远程没有的自定义怪物从客户端移除（内置4种保留）
       const builtin = ['grunt', 'charger', 'elite', 'goblin'];
@@ -131,16 +132,47 @@ const Game = {
       for (const [id, s] of Object.entries(skills)) {
         if (CONFIG.skills[id]) {
           Object.assign(CONFIG.skills[id], { name: s.name, desc: s.desc, flow: s.flow, tags: s.tags, levels: s.levels });
-          if (s.behavior) CONFIG.skills[id].behavior = s.behavior;
+          // 只有客户端已实现的行为才允许覆盖，避免服务端下发无 handler 的行为导致崩溃
+          if (s.behavior && typeof Skills !== 'undefined' && typeof Skills['bh_' + s.behavior] === 'function') {
+            CONFIG.skills[id].behavior = s.behavior;
+          }
           if (s.icon) CONFIG.skills[id].icon = s.icon;
           if (s.projectile) CONFIG.skills[id].projectile = s.projectile;
-        } else if (s.behavior) {
+        } else if (s.behavior && typeof Skills !== 'undefined' && typeof Skills['bh_' + s.behavior] === 'function') {
           // 新增技能注入（需有 behavior 才能生效）
           CONFIG.skills[id] = { name: s.name, icon: s.icon, flow: s.flow, behavior: s.behavior, desc: s.desc, tags: s.tags || [], projectile: s.projectile, levels: s.levels || [] };
+        } else if (s.behavior) {
+          console.warn('[config] 跳过无客户端实现的行为:', id, s.behavior);
         }
       }
       console.log('[config] 远程技能定义已合并');
     }
+  },
+
+  // 远程敌人定义兜底校验：数值字段越界/非法一律回退默认值，字符串/布尔原样保留
+  _sanitizeEnemy(src, base) {
+    const out = Object.assign({}, base || {});
+    if (!src || typeof src !== 'object') return out;
+    const limits = {
+      hp: [1, 1e6, 20], hpWave: [0, 1e5, 5], hpWavePct: [0, 10, 0.08],
+      dmg: [0, 1e5, 8], dmgWave: [0, 1e5, 0.5], speed: [0, 5000, 85],
+      exp: [0, 1e5, 1], r: [1, 500, 24], drawH: [1, 2000, 80],
+      chargeSpeed: [0, 5000, 330], chargeRange: [0, 10000, 380], spawnWeight: [0, 1000, 0],
+    };
+    for (const k in src) {
+      const v = src[k];
+      if (typeof v === 'number' && !isNaN(v)) {
+        const lim = limits[k];
+        if (lim) out[k] = Math.min(lim[1], Math.max(lim[0], v));
+        else out[k] = v;
+      } else if (typeof v === 'string') {
+        out[k] = v;
+      } else if (typeof v === 'boolean') {
+        out[k] = v;
+      }
+      // 其他类型（对象/数组/NaN）直接丢弃，防止写坏客户端
+    }
+    return out;
   },
 
   // 60s 版本轮询 + 页面恢复时检查
@@ -201,7 +233,7 @@ const Game = {
     if (typeof Assets !== 'undefined') Assets.retryFailed(); // 菜单阶段失败/超时的资源重试一次
     this.state = 'battle';
     if (typeof Craft !== 'undefined') Craft.applyWeaponEffects(classId);
-    UI.banner('进入裂界', Player.cfg.name + ' · ' + Player.cfg.title);
+    UI.banner('进入裂界', Player.cfg.name + ' · ' + Player.cfg.title + (Player._weaponName ? ' · 装备 ' + Player._weaponName : ''));
   },
 
   loop(ts) {
@@ -251,8 +283,15 @@ const Game = {
           flow: Skills.dominantFlow(),
           build: Skills.owned.map(s => {
             const c = Skills.cfgOf(s.id);
-            return { icon: c.icon, name: c.name, lv: s.lv, evo: !!CONFIG.evolutions[s.id] };
+            return { id: s.id, icon: c.icon, name: c.name, lv: s.lv, evo: !!CONFIG.evolutions[s.id] };
           }),
+          // 进场信息：天赋（结算时与进场时一致）、武器（本局实际装备）、最终生命
+          talents: (typeof Storage !== 'undefined' && Storage.Load().talents) || {},
+          weapon: Player._weaponName || '',
+          weaponEffect: Player._weaponEffect ? Player._weaponEffect.type : '',
+          weapons: (typeof Craft !== 'undefined' && Craft.ownedWeapons) ? Craft.ownedWeapons(this.classId).map(w => ({ id: w.id, name: w.name, rarity: w.rarity })) : [],
+          finalHp: Math.round(Player.hp),
+          maxHp: Player.maxHp,
         };
         if (typeof Storage !== 'undefined') Storage.recordRun(this.report);
         this.state = 'death';

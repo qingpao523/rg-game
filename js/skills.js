@@ -50,7 +50,11 @@ const Skills = {
 
   enhanceMult() {
     const s = this.getSkill('taoist_skull_enhance');
-    return s ? 1 + this.lvData(s).atk : 1;
+    if (!s) return 1;
+    const d = this.lvData(s);
+    // 兼容 atk / atkMult 两种字段名，缺字段按 0 处理，杜绝 NaN 传染
+    const atk = d.atk != null ? d.atk : (d.atkMult != null ? d.atkMult : 0);
+    return 1 + (atk || 0);
   },
 
   // ---------- 主更新 ----------
@@ -83,6 +87,7 @@ const Skills = {
         img: c.projectile, x: Player.x, y: Player.y - 50, speed: 520,
         vx: Math.cos(ang) * 520, vy: Math.sin(ang) * 520,
         dmg: d.dmg * dmgScale, r: 14, homing: 6, target: e, life: 2.5, h: 44,
+        wMissile: true, // 武器·桃木剑分裂只对魔法飞弹生效（灾厄飞星不触发）
       });
     });
   },
@@ -211,6 +216,14 @@ const Skills = {
     FX.bolt(e.x, e.y - 200, e.x, e.y, '#cfeaff', 0.22);
     FX.imgFx(crit ? 'effects/crit_effect.png' : 'effects/hit_effect.png', e.x, e.y - 30, 90, { life: 0.3 });
     Enemies.hurt(e, d.dmg, { crit, color: '#cfeaff' });
+    // 武器·五雷令牌：命中后地面留电弧 2s（30% 伤害/s）
+    const w = Player._weaponEffect;
+    if (w && w.type === 'bolt_zone' && !e.dead) {
+      this.zones.push({
+        kind: 'bolt_zone', x: e.x, y: e.y, r: 70, t: 0, dur: 2, tick: 0,
+        dmg: Math.max(1, Math.round(d.dmg * w.value * 0.5)), // 每 0.5s tick = 30% 伤害/s 的一半
+      });
+    }
     // 万雷归宗：命中后对全场感电敌人追加一次落雷（50% 伤害）
     if (tb && tb.thunderAll) {
       for (const se of Enemies.list) {
@@ -333,7 +346,10 @@ const Skills = {
     if (s.t > 0) return;
     const tb = Player.talentBonus;
     // 召唤大军：召唤物上限 +1/+2
-    const cap = d.max + (tb && tb.summonCapPlus ? tb.summonCapPlus : 0);
+    // 武器·枯骨杖：骷髅上限 +1
+    const w = Player._weaponEffect;
+    const weaponCap = w && w.type === 'summon_cap' ? 1 : 0;
+    const cap = d.max + (tb && tb.summonCapPlus ? tb.summonCapPlus : 0) + weaponCap;
     const n = this.summons.filter(u => u.kind === 'melee').length;
     if (n >= cap) { s.t = 0.5; return; }
     s.t = d.cd * Player.cdMult;
@@ -624,6 +640,7 @@ const Skills = {
   },
   projHit(p, e) {
     const tb = Player.talentBonus;
+    const w = Player._weaponEffect;
     const origDmg = p.dmg;
     if (p.aoe) {
       // 爆炸弹：直接命中伤害并入 AoE，避免双倍
@@ -638,6 +655,22 @@ const Skills = {
     // P3：冰锥术减速
     if (p.slow) { e.slowPct = Math.max(e.slowPct || 0, p.slow); e.slowT = Math.max(e.slowT || 0, 1.5); }
     if (p.doomAmp) { e.doomAmp = p.doomAmp; e.doomT = p.doomDur; }
+    // 武器·桃木剑：魔法飞弹命中后分裂 1 枚小飞弹（50% 伤害）
+    if (w && w.type === 'missile_split' && p.wMissile && !p.splitChild && !p.summon && origDmg > 0) {
+      const base = Math.atan2(p.vy, p.vx);
+      this.spawnProj({
+        img: p.img, x: p.x, y: p.y, speed: p.speed,
+        vx: Math.cos(base) * p.speed, vy: Math.sin(base) * p.speed,
+        dmg: Math.max(1, Math.round(origDmg * w.value)), r: Math.max(6, p.r * 0.6),
+        life: 0.9, h: Math.round(p.h * 0.7), splitChild: true, homing: 6, wMissile: true,
+      });
+    }
+    // 武器·冰晶法杖：冰锥命中 20% 概率冻结 0.5s
+    if (w && w.type === 'ice_freeze' && p.iceShard && !e.freezeT && !e.dead && Math.random() < w.value) {
+      e.freezeT = Math.max(e.freezeT || 0, 0.5);
+      e.pendingShatter = e.pendingShatter || 0;
+      FX.text(e.x, e.y - e.r * 2 - 8, '冻结', '#aee6ff', 14);
+    }
     // 灼热大地：火焰技能命中后地面留燃烧区 2s（20%/40% 伤害）
     if (tb && tb.fireGround && (p.fire || p.burn) && origDmg > 0 && !p.splitChild) {
       this.zones.push({
@@ -746,6 +779,12 @@ const Skills = {
           Enemies.hurt(e, z.dmg, { color: '#9fd8ff' });
           e.slowPct = Math.max(e.slowPct || 0, z.slow); e.slowT = CONFIG.status.slowDur;
           if (Math.random() < z.stun) e.stunT = Math.max(e.stunT || 0, CONFIG.status.stunDur);
+        }
+      } else if (z.kind === 'bolt_zone') {
+        // 武器·五雷令牌：电弧区持续伤害
+        for (const e of Enemies.list) {
+          if (e.dead || M.dist(z.x, z.y, e.x, e.y) > z.r + e.r) continue;
+          Enemies.hurt(e, z.dmg, { color: '#b7e3ff' });
         }
       } else if (z.kind === 'wall') {
         const x2 = z.x + Math.cos(z.ang) * z.len, y2 = z.y + Math.sin(z.ang) * z.len;
@@ -865,6 +904,16 @@ const Skills = {
               dmg: u.dmg * u.buffMult, r: 10, life: 1.5, h: 34, summon: true,
               slow: summonSlow || 0,
             });
+            // 武器·阿努比斯权杖：额外发射 1 支骨箭（小角度偏移）
+            const w = Player._weaponEffect;
+            if (w && w.type === 'archer_multi' && !e.dead) {
+              this.spawnProj({
+                img: 'projectiles/skeleton_arrow.png', x: u.x, y: u.y - 30, speed: 600,
+                vx: Math.cos(ang + 0.18) * 600, vy: Math.sin(ang + 0.18) * 600,
+                dmg: u.dmg * u.buffMult, r: 10, life: 1.5, h: 34, summon: true,
+                slow: summonSlow || 0,
+              });
+            }
           }
         } else {
           const dd = M.dist(u.x, u.y, Player.x, Player.y);
@@ -1089,6 +1138,16 @@ const Skills = {
         if (img) ctx.drawImage(img, x - z.r, y - z.r * 0.7, z.r * 2, z.r * 1.4);
         ctx.strokeStyle = 'rgba(159,216,255,0.5)';
         ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.stroke();
+      } else if (z.kind === 'bolt_zone') {
+        // 武器·五雷令牌：地面电弧区
+        ctx.globalAlpha = 0.25 + Math.sin(z.t * 10) * 0.1;
+        ctx.fillStyle = '#9fd8ff';
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = '#cfeaff';
+        ctx.setLineDash([6, 8]);
+        ctx.beginPath(); ctx.arc(x, y, z.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
       } else if (z.kind === 'wall') {
         const img = Assets.img('effects/fire_wall.png');
         ctx.translate(x, y);

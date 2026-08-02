@@ -1,10 +1,35 @@
 // 无尽入侵 · 管理后台逻辑
+// 天赋 ID → 名称（与客户端 js/talents.js 保持一致，用于对局详情展示）
+const TALENT_NAMES = {
+  G1: '健壮', G2: '疾风步', G3: '扩大拾取', G4: '坚韧', G5: '生命强化',
+  G7: '背水一战', G8: '自动拾取', G9: '不屈意志', G10: '不朽', G11: '拾取之王', G12: '永动之躯',
+  T1: '多重施法', T2: '投射物分裂', T3: '范围扩大', T4: '灼热大地', T5: '过载连锁', T6: '感电扩散',
+  T7: '雷霆之怒', T8: '焚天灭世', T9: '万雷归宗',
+  S1: '多重施法', S2: '投射物分裂', S3: '范围扩大', S4: '剑气残留', S5: '连斩', S6: '居合',
+  S7: '无双乱舞', S8: '刹那永恒', S9: '血刃狂歌',
+  P1: '多重施法', P2: '投射物分裂', P3: '范围扩大', P4: '召唤大军', P5: '亡者献祭', P6: '骷髅精锐',
+  P7: '不死军团', P8: '冥府之门', P9: '亡者国度',
+  I1: '多重施法', I2: '投射物分裂', I3: '范围扩大', I4: '永冻', I5: '碎冰',
+  I7: '冰河时代', I8: '绝对零度', I9: '冰晶风暴',
+  C1: '多重施法', C2: '投射物分裂', C3: '范围扩大', C4: '灼热大地', C5: '圣光回响', C6: '铁壁',
+  C7: '神圣领域', C8: '光明审判', C9: '不屈圣盾',
+};
+
 const AdminApp = {
   token: localStorage.getItem('admin_token') || '',
   currentPage: 'dashboard',
   editingSkillId: null,
   editingAnnId: null,
   skillIconData: null,
+
+  // 时间显示统一转本地时区（服务端存 UTC，直接截取字符串会差 8 小时）
+  fmtLocal(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  },
 
   // ---------- API ----------
   async api(method, path, body) {
@@ -93,7 +118,7 @@ const AdminApp = {
         <td>${p.generalTalentPoints || 0}</td><td>${p.specialistTalentPoints || 0}</td>
         <td>${(p.stats || {}).runs || 0}</td><td>${(p.stats || {}).kills || 0}</td>
         <td>${p.banned ? '<span class="tag tag-red">封禁</span>' : '<span class="tag tag-green">正常</span>'}</td>
-        <td>${(p.updated_at || '').slice(0, 16).replace('T', ' ')}</td>
+        <td>${this.fmtLocal(p.updated_at)}</td>
         <td>
           <button class="btn-sm" onclick="AdminApp.viewPlayer('${p.id}')">详情</button>
           ${p.banned ? `<button class="btn-sm" onclick="AdminApp.unbanPlayer('${p.id}')">解封</button>` : `<button class="btn-sm btn-danger" onclick="AdminApp.banPlayer('${p.id}')">封禁</button>`}
@@ -142,16 +167,61 @@ const AdminApp = {
     try {
       const data = await this.api('GET', url);
       const names = { taoist: '道士', samurai: '武士', pharaoh: '法老', ice_witch: '寒冰女巫', crusader: '十字军' };
-      document.getElementById('runs-body').innerHTML = data.items.map(r => `<tr>
-        <td>${r.id}</td><td title="${r.player_id}">${(r.player_id||'').slice(0,10)}…</td>
-        <td>${names[r.class_id] || r.class_id}</td><td>第${r.wave}波</td>
-        <td>${r.time_seconds}s</td><td>${r.kills}</td><td>${r.evolutions||0}</td>
-        <td><span class="tag tag-gold">${r.flow || '-'}</span></td>
-        <td>${r.exp_earned||0}</td><td>${r.gold_earned||0}</td><td>${r.shards_earned||0}</td>
-        <td>${(r.created_at||'').slice(0,16).replace('T',' ')}</td>
-      </tr>`).join('');
+      const esc = this.escapeHtml.bind(this);
+      document.getElementById('runs-body').innerHTML = data.items.length ? data.items.map(r => `
+        <tr class="run-row" data-id="${esc(r.id)}" onclick="AdminApp.toggleRunDetail('${esc(r.id)}')" title="点击展开详情">
+          <td>${esc(r.id)}</td><td title="${esc(r.player_id)}">${esc((r.player_id||'').slice(0,10))}…</td>
+          <td>${names[r.class_id] || esc(r.class_id)}</td><td>第${esc(r.wave)}波</td>
+          <td>${esc(r.time_seconds)}s</td><td>${esc(r.kills)}</td><td>${esc(r.evolutions||0)}</td>
+          <td><span class="tag tag-gold">${esc(r.flow || '-')}</span></td>
+          <td>${esc(r.exp_earned||0)}</td><td>${esc(r.gold_earned||0)}</td><td>${esc(r.shards_earned||0)}</td>
+          <td>${this.fmtLocal(r.created_at)}</td>
+          <td class="run-chevron">▸</td>
+        </tr>
+        <tr id="run-detail-${esc(r.id)}" class="run-detail" style="display:none">
+          <td colspan="13">${this.renderRunDetail(r)}</td>
+        </tr>`).join('') : '<tr><td colspan="13" style="text-align:center;color:rgba(200,200,210,0.4)">暂无对局记录</td></tr>';
       this.renderPagination('runs-pagination', data.total, data.page, data.size, p => this.loadRuns(p));
     } catch (e) { console.error(e); }
+  },
+
+  toggleRunDetail(id) {
+    const row = document.getElementById('run-detail-' + id);
+    const main = document.querySelector('tr[data-id="' + id + '"]');
+    if (!row) return;
+    const show = row.style.display !== 'table-row';
+    row.style.display = show ? 'table-row' : 'none';
+    if (main) main.classList.toggle('run-row-open', show);
+  },
+
+  renderRunDetail(r) {
+    const esc = this.escapeHtml.bind(this);
+    const skills = Array.isArray(r.skills) && r.skills.length ? r.skills.map(s => {
+      if (s && typeof s === 'object') {
+        return `<span class="chip">${esc(s.name || s.id || '?')}${s.evo ? ' · 进化' : ' · Lv.' + esc(s.lv != null ? s.lv : '?')}</span>`;
+      }
+      return `<span class="chip">${esc(s)}</span>`;
+    }).join('') : '<span class="muted">—</span>';
+    const talents = r.talents && typeof r.talents === 'object' && Object.keys(r.talents).length
+      ? Object.entries(r.talents).map(([id, lv]) => `<span class="chip">${esc(TALENT_NAMES[id] || id)} Lv.${esc(lv)}</span>`).join('')
+      : '<span class="muted">—</span>';
+    const weapons = Array.isArray(r.weapons) && r.weapons.length
+      ? r.weapons.map(w => `<span class="chip">${esc(w.name || w.id || w)}${w.rarity ? '（' + esc(w.rarity) + '）' : ''}</span>`).join('')
+      : '<span class="muted">—</span>';
+    const equipped = r.weapon ? `${esc(r.weapon)}${r.weapon_effect ? ' · 效果 ' + esc(r.weapon_effect) : ''}` : '<span class="muted">—</span>';
+    return `
+      <div class="run-detail-grid">
+        <div><span class="dl">玩家 ID</span><div>${esc(r.player_id || '-')}</div></div>
+        <div><span class="dl">职业</span><div>${esc(r.class_id || '-')}</div></div>
+        <div><span class="dl">最终等级</span><div>Lv.${esc(r.level != null ? r.level : '?')}</div></div>
+        <div><span class="dl">最终生命</span><div>${r.final_hp != null ? esc(r.final_hp) + ' / ' + esc(r.max_hp != null ? r.max_hp : '?') : '<span class="muted">—</span>'}</div></div>
+        <div><span class="dl">主导流派</span><div>${esc(r.flow || '-')}</div></div>
+        <div><span class="dl">对局时间</span><div>${this.fmtLocal(r.created_at)}</div></div>
+      </div>
+      <h4>技能构筑（升级等级）</h4><div>${skills}</div>
+      <h4>进场天赋</h4><div>${talents}</div>
+      <h4>进场武器（本职业拥有）</h4><div>${weapons}</div>
+      <div class="run-detail-weapon">实际装备：${equipped}</div>`;
   },
 
   // ---------- 技能管理 ----------
@@ -508,7 +578,7 @@ const AdminApp = {
       document.getElementById('lb-body').innerHTML = leaderboard.map((e, i) => `<tr>
         <td>${i < 3 ? ['🥇','🥈','🥉'][i] : i + 1}</td>
         <td>${e.name || e.player_id}</td><td>${e.score}${type === 'survival' ? 's' : ''}</td>
-        <td>${(e.updated_at||'').slice(0,16).replace('T',' ')}</td>
+        <td>${this.fmtLocal(e.updated_at)}</td>
       </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:rgba(200,200,210,0.4)">暂无数据</td></tr>';
     } catch (e) { console.error(e); }
   },
@@ -577,6 +647,167 @@ const AdminApp = {
     this.loadAnnouncements();
   },
 
+  // ---------- AI 配置助手（本地 Ollama 浮窗） ----------
+  chatOpen: false,
+  chatBusy: false,
+  chatHistory: [],
+  chatModelsLoaded: false,
+  chatResetPending: false,
+
+  initChatInput() {
+    const ta = document.getElementById('ai-chat-text');
+    if (!ta || ta._chatBound) return;
+    ta._chatBound = true;
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendChat(); }
+    });
+  },
+
+  async toggleChat() {
+    this.initChatInput();
+    this.chatOpen = !this.chatOpen;
+    document.getElementById('ai-chat-panel').style.display = this.chatOpen ? 'flex' : 'none';
+    if (this.chatOpen && !this.chatModelsLoaded) await this.loadChatMeta();
+  },
+
+  async loadChatMeta() {
+    try {
+      const d = await this.api('GET', '/api/admin/chat/models');
+      const sel = document.getElementById('ai-chat-model');
+      const saved = localStorage.getItem('ai_chat_model');
+      const def = d.models.includes(d.defaultModel) ? d.defaultModel : (d.models[0] || '');
+      sel.innerHTML = d.models.map(m =>
+        `<option value="${this.escapeHtml(m)}">${this.escapeHtml(m)}</option>`
+      ).join('');
+      sel.value = d.models.includes(saved) ? saved : def;
+      document.getElementById('ai-chat-kb').textContent =
+        `知识库：配置 v${d.knowledge.configVersion} · ${d.knowledge.skillCount} 技能 · ${d.knowledge.enemyCount} 怪物 · ${d.knowledge.codeFiles} 代码文件（自动检索） · 上下文 ${(d.numCtx || 64000) / 1024}k（${Math.round((d.resetRatio || 0.7) * 100)}% 自动重置）`;
+      this.chatModelsLoaded = true;
+    } catch (e) {
+      this.appendChatMessage('err', '无法连接本地 Ollama：' + (e.message || e) + '（请确认 Ollama 已启动）');
+    }
+  },
+
+  async sendChat() {
+    if (this.chatBusy) return;
+    const text = document.getElementById('ai-chat-text').value.trim();
+    if (!text) return;
+    document.getElementById('ai-chat-text').value = '';
+    const model = document.getElementById('ai-chat-model').value;
+    localStorage.setItem('ai_chat_model', model);
+    this.chatHistory.push({ role: 'user', content: text });
+    this.appendChatMessage('user', text);
+    this.chatBusy = true;
+    document.getElementById('ai-chat-send').disabled = true;
+    // 思考过程与最终回答分两个气泡流式展示（qwythos 等思考模型会先输出 thinking 再输出 content）
+    const body = document.getElementById('ai-chat-body');
+    const thinkEl = document.createElement('div');
+    thinkEl.className = 'ai-msg ai-msg-thinking';
+    thinkEl.textContent = '思考中…';
+    body.appendChild(thinkEl);
+    this.scrollChat();
+    let thinkAcc = '';
+    let acc = '';
+    let answerEl = null;
+    try {
+      const res = await fetch('/api/admin/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': this.token },
+        body: JSON.stringify({ model, messages: this.chatHistory }),
+      });
+      if (res.status === 401) { this.showLogin(); throw new Error('登录已过期，请重新登录'); }
+      if (!res.ok || !res.body) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || ('HTTP ' + res.status));
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const events = buf.split('\n\n');
+        buf = events.pop();
+        for (const ev of events) {
+          const line = ev.trim();
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          let j;
+          try {
+            j = JSON.parse(data);
+          } catch { continue; }
+          if (j.error) throw new Error(j.error);
+          if (j.notice) {
+            this.appendChatMessage('ai', j.notice);
+            this.chatResetPending = true;
+          }
+          if (j.thinking) {
+            thinkAcc += j.thinking;
+            thinkEl.textContent = '💭 ' + thinkAcc;
+            this.scrollChat();
+          }
+          if (j.delta) {
+            acc += j.delta;
+            if (!answerEl) {
+              answerEl = document.createElement('div');
+              answerEl.className = 'ai-msg ai-msg-ai';
+              body.insertBefore(answerEl, thinkEl.nextSibling);
+            }
+            answerEl.textContent = acc;
+            this.scrollChat();
+          }
+        }
+      }
+      if (!acc.trim() && thinkAcc.trim()) {
+        thinkEl.textContent = '💭 ' + thinkAcc + '\n\n（模型只输出了思考过程，没有最终回答）';
+      } else if (!acc.trim() && !thinkAcc.trim()) {
+        thinkEl.remove();
+        this.appendChatMessage('err', '（模型没有返回内容，请重试或换个模型）');
+      } else {
+        thinkEl.textContent = '💭 ' + thinkAcc;
+        this.chatHistory.push({ role: 'assistant', content: acc });
+      }
+      // 服务端已清理上下文：本次问答结束后开始全新对话
+      if (this.chatResetPending) {
+        this.chatHistory = [];
+        this.chatResetPending = false;
+      }
+    } catch (e) {
+      if (thinkEl.parentNode) thinkEl.remove();
+      this.appendChatMessage('err', '⚠️ ' + e.message);
+    } finally {
+      this.chatBusy = false;
+      document.getElementById('ai-chat-send').disabled = false;
+    }
+  },
+
+  clearChat() {
+    this.chatHistory = [];
+    const body = document.getElementById('ai-chat-body');
+    body.innerHTML = '';
+    this.appendChatMessage('ai', '你好，我是配置助手。当前游戏配置、技能、职业、武器已作为知识库载入，代码也会按问题自动检索。可以问：「怎么调低前期难度？」「武器效果在哪个文件实现？」「改技能数值要动哪里？」');
+  },
+
+  appendChatMessage(kind, text) {
+    const body = document.getElementById('ai-chat-body');
+    const div = document.createElement('div');
+    div.className = 'ai-msg ' + (kind === 'user' ? 'ai-msg-user' : kind === 'err' ? 'ai-msg-err' : 'ai-msg-ai');
+    div.textContent = text;
+    body.appendChild(div);
+    this.scrollChat();
+  },
+
+  scrollChat() {
+    const b = document.getElementById('ai-chat-body');
+    if (b) b.scrollTop = b.scrollHeight;
+  },
+
+  escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+
   // ---------- 工具 ----------
   closeModal(id) { document.getElementById(id).style.display = 'none'; },
 
@@ -594,6 +825,7 @@ const AdminApp = {
 
   // ---------- 初始化 ----------
   async init() {
+    this.initChatInput();
     if (!this.token) { this.showLogin(); return; }
     try {
       const res = await fetch('/api/admin/check', { headers: { 'X-Admin-Token': this.token } });

@@ -77,7 +77,11 @@ const Wheel = {
     if (!r || r.type === 'none') return;
     const d = Storage.Load();
     if (r.type === 'gold') d.gold = (d.gold || 0) + r.value;
-    else if (r.type === 'tp') d.talentPoints = (d.talentPoints || 0) + r.value;
+    // 双池口径：与升级奖励一致，通用/专精各 +1（旧 talentPoints 字段已废弃，不再写入）
+    else if (r.type === 'tp') {
+      d.generalTalentPoints = (d.generalTalentPoints || 0) + r.value;
+      d.specialistTalentPoints = (d.specialistTalentPoints || 0) + r.value;
+    }
     else if (r.type === 'shard') d.shards = (d.shards || 0) + r.value;
     else if (r.type === 'exp') Storage.addExp(r.value);
     Storage.Save(d);
