@@ -19,6 +19,12 @@ const Game = {
     this.resize();
     window.addEventListener('resize', () => this.resize());
     Engine.init(this.canvas, this);
+    // 名字输入框：Enter 确认
+    const nameInput = document.getElementById('name-input');
+    if (nameInput && !nameInput._nameBound) {
+      nameInput._nameBound = true;
+      nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.savePlayerName(); });
+    }
     Assets.loadAll(
       (n, total) => { this.loadProgress = n / total; },
       () => { this.state = 'menu'; this.fetchRemoteConfig(); }
@@ -295,6 +301,8 @@ const Game = {
         };
         if (typeof Storage !== 'undefined') Storage.recordRun(this.report);
         this.state = 'death';
+        // 还没起名字的玩家：结算页弹出起名框（可跳过，下一局还会提醒）
+        if (typeof Storage !== 'undefined' && !(Storage.Load().name || '').trim()) this.showNamePrompt();
       }
     } else {
       UI.update(dt);
@@ -467,6 +475,35 @@ const Game = {
     } else if (code === 'Escape' || code === 'KeyP') {
       if (this.state === 'battle' || this.state === 'pause') this.togglePause();
     }
+  },
+
+  showNamePrompt() {
+    const ov = document.getElementById('name-overlay');
+    if (!ov) return;
+    ov.style.display = 'flex';
+    const input = document.getElementById('name-input');
+    if (input) { input.value = ''; setTimeout(() => input.focus(), 100); }
+  },
+
+  hideNamePrompt() {
+    const ov = document.getElementById('name-overlay');
+    if (ov) ov.style.display = 'none';
+  },
+
+  savePlayerName() {
+    const input = document.getElementById('name-input');
+    const name = (input ? input.value : '').trim().slice(0, 16);
+    if (!name) { if (input) input.focus(); return; }
+    if (typeof Storage !== 'undefined') {
+      Storage.setName(name);
+      Storage.syncToServer(); // 名字同步到服务器，排行榜/玩家资料立即更新
+    }
+    this.hideNamePrompt();
+    if (typeof UI !== 'undefined') UI.toast('名字已保存：' + name);
+  },
+
+  skipPlayerName() {
+    this.hideNamePrompt();
   },
 };
 

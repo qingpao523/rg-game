@@ -113,6 +113,19 @@ const LBDB = {
     }
     return false;
   },
+  // 玩家改名后同步刷新所有榜单里的名字
+  updateName(playerId, name) {
+    let changed = false;
+    for (const entries of Object.values(leaderboards)) {
+      if (entries[playerId] && entries[playerId].name !== name) {
+        entries[playerId].name = name;
+        entries[playerId].updated_at = new Date().toISOString();
+        changed = true;
+      }
+    }
+    if (changed) this.save();
+    return changed;
+  },
   top(classId, type, limit = 100) {
     // 全部职业：汇总所有 `${class}:${type}` 键，同一玩家取最高分去重
     if (classId === 'all') {

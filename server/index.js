@@ -402,12 +402,13 @@ route('GET', '/api/player/profile', async (req, res, params) => {
 
 route('POST', '/api/player/sync', async (req, res) => {
   const body = await readBody(req);
-  const { playerId, ...save } = body;
+  const { playerId, name, ...save } = body;
   if (!playerId) return json(res, 400, { error: 'missing playerId' });
   let player = PlayerDB.get(playerId);
   if (!player) player = PlayerDB.create(playerId, save.platform || 'web', playerId);
   if (player.banned) return json(res, 403, { error: 'banned' });
   const merged = {
+    name: (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 30) : (player.name || ''),
     level: Math.max(player.level, save.level || 1),
     exp: Math.max(player.exp, save.exp || 0),
     gold: Math.max(player.gold, save.gold || 0),
@@ -419,13 +420,17 @@ route('POST', '/api/player/sync', async (req, res) => {
     achievements: [...new Set([...(player.achievements || []), ...(save.achievements || [])])],
     stats: mergeObj(player.stats, save.stats),
   };
+  // 注意：PlayerDB.update 是原地 Object.assign，先保存旧名字再比较，否则判断永远不成立
+  const prevName = player.name || '';
   const updated = PlayerDB.update(playerId, merged);
+  // 改名后同步刷新该玩家在全部排行榜中的显示名
+  if (merged.name && prevName !== merged.name) LBDB.updateName(playerId, merged.name);
   json(res, 200, { player: sanitize(updated) });
 });
 
 route('POST', '/api/run/complete', async (req, res) => {
   const body = await readBody(req);
-  const { playerId, class_id, wave, time_seconds, kills, evolutions, level, skills, talents, weapon, weapon_effect, weapons, final_hp, max_hp, flow, exp_earned, gold_earned, shards_earned } = body;
+  const { playerId, class_id, wave, time_seconds, kills, evolutions, level, skills, talents, weapon, weapon_effect, weapons, final_hp, max_hp, name, flow, exp_earned, gold_earned, shards_earned } = body;
   if (!playerId || !class_id) return json(res, 400, { error: 'missing fields' });
   // 职业白名单：防止非法/未知 class_id 污染对局记录与排行榜
   const CLASS_IDS = ['taoist', 'samurai', 'pharaoh', 'ice_witch', 'crusader'];
@@ -435,17 +440,21 @@ route('POST', '/api/run/complete', async (req, res) => {
   }
   if (kills < 0 || time_seconds < 0 || wave < 0) return json(res, 422, { error: 'invalid data' });
   if (time_seconds > 0 && kills / time_seconds > 50) return json(res, 422, { error: 'suspicious data' });
+  const player = PlayerDB.get(playerId);
+  const playerName = (player && player.name && player.name.trim())
+    ? player.name.trim()
+    : (typeof name === 'string' ? name.trim().slice(0, 30) : '');
+  const displayName = playerName || ('执契者·' + playerId.slice(0, 6));
   RunDB.add({
     player_id: playerId, class_id, wave, time_seconds, kills, evolutions: evolutions || 0,
+    player_name: playerName,
     level: level || 1,
     skills: skills || [], talents: talents || {}, weapon: weapon || '', weapon_effect: weapon_effect || '',
     weapons: weapons || [], final_hp: final_hp, max_hp: max_hp,
     flow: flow || '', exp_earned: exp_earned || 0, gold_earned: gold_earned || 0, shards_earned: shards_earned || 0,
   });
-  const player = PlayerDB.get(playerId);
-  const name = player ? (player.name || '执契者·' + playerId.slice(0, 6)) : '执契者';
-  LBDB.update(class_id, 'survival', playerId, time_seconds, name);
-  LBDB.update(class_id, 'kills', playerId, kills, name);
+  LBDB.update(class_id, 'survival', playerId, time_seconds, displayName);
+  LBDB.update(class_id, 'kills', playerId, kills, displayName);
   json(res, 200, { ok: true });
 });
 
@@ -816,7 +825,7 @@ route('DELETE', '/api/admin/enemies/:id', async (req, res, params, pathParams) =
 // ---------- 工具函数 ----------
 function sanitize(p) {
   return {
-    level: p.level, exp: p.exp, gold: p.gold, shards: p.shards,
+    name: p.name || '', level: p.level, exp: p.exp, gold: p.gold, shards: p.shards,
     generalTalentPoints: p.generalTalentPoints, specialistTalentPoints: p.specialistTalentPoints,
     talents: p.talents, weapons: p.weapons, achievements: p.achievements, stats: p.stats,
   };

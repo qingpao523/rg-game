@@ -7,7 +7,7 @@ const Storage = {
 
   defaultData() {
     return {
-      level: 1, exp: 0, gold: 0, shards: 0,
+      level: 1, exp: 0, gold: 0, shards: 0, name: '',
       generalTalentPoints: 0, specialistTalentPoints: 0,
       talents: {}, achievements: [],
       stats: { runs: 0, kills: 0, bestTime: 0, bestKills: 0, totalExp: 0, evos: 0 },
@@ -38,6 +38,14 @@ const Storage = {
     this._cache = data;
     this._dirty = true;
     this.scheduleFlush(); // 1s 批量落盘，战斗中拾取碎片不再同步写 localStorage
+  },
+
+  // 玩家名字（排行榜/对局记录展示用），最多 16 字
+  setName(name) {
+    const d = this.Load();
+    d.name = String(name || '').trim().slice(0, 16);
+    this.Save(d);
+    return d.name;
   },
 
   scheduleFlush() {
@@ -206,6 +214,7 @@ const Storage = {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this._token },
         body: JSON.stringify({
           playerId: this.getPlayerId(),
+          name: this.Load().name || '',
           level: d.level, exp: d.exp, gold: d.gold, shards: d.shards,
           generalTalentPoints: d.generalTalentPoints, specialistTalentPoints: d.specialistTalentPoints,
           talents: d.talents, weapons: d.weapons, achievements: d.achievements, stats: d.stats,
@@ -229,6 +238,7 @@ const Storage = {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this._token },
         body: JSON.stringify({
           playerId: this.getPlayerId(),
+          name: this.Load().name || '',
           class_id: Game.classId, wave: report.wave, time_seconds: Math.round(report.time),
           kills: report.kills, evolutions: report.evoCount,
           level: report.level,

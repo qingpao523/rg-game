@@ -12,10 +12,30 @@
     touch-action: none; user-select: none; -webkit-user-select: none;
     background: #000;
   }
+  #name-overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; background: rgba(4,4,10,0.55); }
+  .name-box { width: 420px; max-width: 86vw; background: rgba(14,14,22,0.97); border: 1px solid rgba(201,168,106,0.5); border-radius: 14px; padding: 26px 24px; text-align: center; box-sizing: border-box; }
+  .name-title { color: #f0d9a0; font-size: 20px; font-weight: bold; margin-bottom: 8px; }
+  .name-sub { color: rgba(200,200,210,0.7); font-size: 13px; margin-bottom: 18px; }
+  #name-input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; background: rgba(30,28,42,0.9); color: #f0ead8; border: 1px solid rgba(201,168,106,0.4); border-radius: 8px; outline: none; text-align: center; }
+  #name-input:focus { border-color: #f0d9a0; }
+  .name-actions { display: flex; gap: 12px; margin-top: 16px; justify-content: center; }
+  .name-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(201,168,106,0.4); background: rgba(30,28,42,0.9); color: #c9a86a; font-size: 15px; cursor: pointer; }
+  .name-btn.primary { background: rgba(201,168,106,0.9); color: #2a1e08; font-weight: bold; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="name-overlay">
+  <div class="name-box">
+    <div class="name-title">⚔ 给自己起个名字</div>
+    <div class="name-sub">名字会显示在排行榜和对局记录里</div>
+    <input id="name-input" maxlength="16" placeholder="输入你的名字" autocomplete="off">
+    <div class="name-actions">
+      <button class="name-btn primary" onclick="Game.savePlayerName()">确认</button>
+      <button class="name-btn" onclick="Game.skipPlayerName()">跳过</button>
+    </div>
+  </div>
+</div>
 <script>
   // ===== 缓存策略（只下载更新的，没变更的走缓存不重下）=====
   // GAME_VERSION：代码版本，改代码时才升，JS 按它做缓存键（变了才重新下载 JS）

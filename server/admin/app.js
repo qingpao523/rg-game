@@ -170,7 +170,7 @@ const AdminApp = {
       const esc = this.escapeHtml.bind(this);
       document.getElementById('runs-body').innerHTML = data.items.length ? data.items.map(r => `
         <tr class="run-row" data-id="${esc(r.id)}" onclick="AdminApp.toggleRunDetail('${esc(r.id)}')" title="点击展开详情">
-          <td>${esc(r.id)}</td><td title="${esc(r.player_id)}">${esc((r.player_id||'').slice(0,10))}…</td>
+          <td>${esc(r.id)}</td><td title="${esc(r.player_id)}">${esc(r.player_name || (r.player_id||'').slice(0,10) + '…')}</td>
           <td>${names[r.class_id] || esc(r.class_id)}</td><td>第${esc(r.wave)}波</td>
           <td>${esc(r.time_seconds)}s</td><td>${esc(r.kills)}</td><td>${esc(r.evolutions||0)}</td>
           <td><span class="tag tag-gold">${esc(r.flow || '-')}</span></td>
@@ -211,6 +211,7 @@ const AdminApp = {
     const equipped = r.weapon ? `${esc(r.weapon)}${r.weapon_effect ? ' · 效果 ' + esc(r.weapon_effect) : ''}` : '<span class="muted">—</span>';
     return `
       <div class="run-detail-grid">
+        <div><span class="dl">玩家名</span><div>${esc(r.player_name || '—')}</div></div>
         <div><span class="dl">玩家 ID</span><div>${esc(r.player_id || '-')}</div></div>
         <div><span class="dl">职业</span><div>${esc(r.class_id || '-')}</div></div>
         <div><span class="dl">最终等级</span><div>Lv.${esc(r.level != null ? r.level : '?')}</div></div>
